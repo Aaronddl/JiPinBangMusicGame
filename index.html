@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>极品帮音游</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0b0e14;
+    color: #e8e8e8;
+    font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    user-select: none;
+  }
+  #wrap { position: relative; }
+  #game {
+    display: block;
+    border-radius: 16px;
+    background: radial-gradient(ellipse at 50% 0%, #1a2030 0%, #0b0e14 70%);
+    box-shadow: 0 0 60px rgba(80, 140, 255, 0.12), 0 20px 60px rgba(0,0,0,0.6);
+  }
+  #hud {
+    position: absolute;
+    top: 18px; left: 24px; right: 24px;
+    display: flex; justify-content: space-between;
+    pointer-events: none;
+    font-size: 14px;
+    letter-spacing: 0.06em;
+  }
+  #hud .score { font-size: 28px; font-weight: 700; color: #fff; }
+  #hud .combo { color: #7fd1ff; font-weight: 600; }
+  #hud .acc { color: #9aa4b8; }
+  #select {
+    position: absolute;
+    inset: 0;
+    display: flex; flex-direction: column;
+    justify-content: center; align-items: center;
+    background: rgba(8, 10, 16, 0.92);
+    backdrop-filter: blur(12px);
+    border-radius: 16px;
+    z-index: 10;
+    transition: opacity 0.25s;
+  }
+  #select.hidden { opacity: 0; pointer-events: none; }
+  #select h1 { font-size: 22px; font-weight: 600; margin-bottom: 6px; color: #fff; }
+  #select p { font-size: 13px; color: #6b7688; margin-bottom: 28px; }
+  .song-list { display: flex; flex-direction: column; gap: 10px; width: 300px; }
+  .song-btn {
+    padding: 14px 20px;
+    border: 1px solid #252c3a;
+    border-radius: 12px;
+    background: #121722;
+    color: #d0d6e2;
+    cursor: pointer;
+    text-align: left;
+    font-size: 15px;
+    transition: all 0.15s;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .song-btn:hover { border-color: #4a6cf7; background: #161d2b; color: #fff; }
+  .song-btn .meta { font-size: 11px; color: #5a6478; }
+  #result {
+    position: absolute; inset: 0;
+    display: none; flex-direction: column;
+    justify-content: center; align-items: center;
+    background: rgba(8, 10, 16, 0.94);
+    border-radius: 16px; z-index: 11;
+  }
+  #result.show { display: flex; }
+  #result .big { font-size: 40px; font-weight: 800; color: #fff; margin-bottom: 8px; }
+  #result .sub { color: #8a94a8; margin-bottom: 24px; font-size: 14px; }
+  #result button {
+    padding: 12px 32px; border-radius: 10px;
+    border: 1px solid #2e3a50; background: #161d2b;
+    color: #d0d6e2; cursor: pointer; font-size: 14px;
+  }
+  #result button:hover { border-color: #4a6cf7; color: #fff; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game"></canvas>
+  <div id="hud">
+    <div>
+      <div class="score">0</div>
+      <div class="acc">ACC 100.00%</div>
+    </div>
+    <div style="text-align:right">
+      <div class="combo">0 COMBO</div>
+    </div>
+  </div>
+
+  <div id="select">
+    <h1>选择曲目</h1>
+    <p>D · F · J · K　｜　四键下落</p>
+    <div class="song-list" id="songList"></div>
+  </div>
+
+  <div id="result">
+    <div class="big" id="resGrade">—</div>
+    <div class="sub" id="resDetail"></div>
+    <button id="resAgain">再来一次</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  /* ============================================================
+     歌曲配置：BPM / 调性 / 段落结构 / 曲谱生成参数
+     ============================================================ */
+  const SONGS = [
+    {
+      id: 'huahai',
+      name: '花海',
+      artist: '周杰伦',
+      bpm: 80,
+      key: 'A 大调 / 降 B 调（改编版本常见）',
+      timeSig: [4, 4],
+      // 段落：{ 名称, 小节数, 密度权重 }  密度权重 0~1
+      sections: [
+        { name: '前奏', bars: 8,  density: 0.15 },
+        { name: '主歌 A', bars: 16, density: 0.40 },
+        { name: '主歌 B', bars: 16, density: 0.50 },
+        { name: '副歌', bars: 16, density: 0.85 },
+        { name: '间奏', bars: 8,  density: 0.30 },
+        { name: '主歌 B', bars: 16, density: 0.50 },
+        { name: '副歌', bars: 16, density: 0.88 },
+        { name: '尾奏', bars: 8,  density: 0.20 }
+      ],
+      // 轨道偏好：某些歌更偏向中间或两侧
+      laneBias: [1, 1, 1, 1],
+      seed: 20240521
+    },
+    {
+      id: 'guyongzhe',
+      name: '孤勇者',
+      artist: '陈奕迅',
+      bpm: 129,           // 原曲速度；钢琴谱面常记为 64，游戏采用 129 更紧凑
+      key: 'G♯ 小调',
+      timeSig: [4, 4],
+      sections: [
+        { name: '前奏', bars: 6,  density: 0.20 },
+        { name: '主歌', bars: 16, density: 0.45 },
+        { name: '预副歌', bars: 8,  density: 0.65 },
+        { name: '副歌', bars: 16, density: 0.95 },
+        { name: '间奏', bars: 8,  density: 0.35 },
+        { name: '主歌 2', bars: 16, density: 0.50 },
+        { name: '预副歌 2', bars: 8, density: 0.70 },
+        { name: '副歌 2', bars: 16, density: 0.98 }
+      ],
+      laneBias: [0.8, 1.2, 1.2, 0.8],
+      seed: 20211108
+    },
+    {
+      id: 'nixudeyuan',
+      name: '你许的愿',
+      artist: 'A1 TRIP / SteadyZ / 一小只TuTu',
+      bpm: 99,
+      key: '未公开明确调性',
+      timeSig: [4, 4],
+      sections: [
+        { name: '前奏', bars: 8,  density: 0.15 },
+        { name: '主歌', bars: 16, density: 0.42 },
+        { name: '副歌', bars: 16, density: 0.80 },
+        { name: '间奏', bars: 8,  density: 0.30 },
+        { name: '主歌 2', bars: 16, density: 0.48 },
+        { name: '副歌 2', bars: 16, density: 0.82 },
+        { name: '尾奏', bars: 8,  density: 0.18 }
+      ],
+      laneBias: [1, 1, 1, 1],
+      seed: 20240309
+    },
+    {
+      id: 'legends',
+      name: 'Legends Never Die',
+      artist: 'League of Legends / Against The Current',
+      bpm: 140,           // 原版 70 BPM；音游采用 140 的谱面速度
+      key: 'E 小调（原调）',
+      timeSig: [4, 4],
+      sections: [
+        { name: 'Intro', bars: 8,  density: 0.20 },
+        { name: 'Verse 1', bars: 16, density: 0.45 },
+        { name: 'Pre-Chorus', bars: 8,  density: 0.65 },
+        { name: 'Chorus', bars: 16, density: 0.95 },
+        { name: 'Interlude', bars: 8,  density: 0.30 },
+        { name: 'Verse 2', bars: 16, density: 0.50 },
+        { name: 'Pre-Chorus 2', bars: 8, density: 0.68 },
+        { name: 'Chorus 2', bars: 16, density: 1.00 },
+        { name: 'Outro', bars: 8, density: 0.15 }
+      ],
+      laneBias: [0.9, 1.1, 1.1, 0.9],
+      seed: 20171104
+    }
+  ];
+
+  /* ============================================================
+     Canvas 与布局
+     ============================================================ */
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const HUD = {
+    score: document.querySelector('.score'),
+    acc: document.querySelector('.acc'),
+    combo: document.querySelector('.combo')
+  };
+  const selectEl = document.getElementById('select');
+  const songListEl = document.getElementById('songList');
+  const resultEl = document.getElementById('result');
+  const resGrade = document.getElementById('resGrade');
+  const resDetail = document.getElementById('resDetail');
+  const resAgain = document.getElementById('resAgain');
+
+  const LANES = 4;
+  const LANE_KEYS = ['d', 'f', 'j', 'k'];
+  const LANE_COLORS = ['#6c8cff', '#a56cff', '#ff6c9c', '#ffb86c'];
+  const LANE_LIGHT = ['rgba(108,140,255,0.22)', 'rgba(165,108,255,0.22)', 'rgba(255,108,156,0.22)', 'rgba(255,184,108,0.22)'];
+
+  let W = 480, H = 720;
+  let laneW = 100, laneStartX = 40, judgeY = 0, noteSize = 64;
+
+  function resize() {
+    const maxW = Math.min(window.innerWidth - 32, 480);
+    const maxH = Math.min(window.innerHeight - 32, 760);
+    W = maxW;
+    H = maxH;
+    laneW = W / LANES;
+    laneStartX = 0;
+    judgeY = H - 120;
+    noteSize = Math.min(laneW * 0.72, 68);
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  /* ============================================================
+     确定性随机数（基于 seed），保证同一首歌每次曲谱一致
+     ============================================================ */
+  function mulberry32(a) {
+    return function() {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      let t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+
+  /* ============================================================
+     曲谱生成器
+     输入：歌曲配置，输出：notes 数组
+     每个 note: { time, lane, judged, hit, missed }
+     ============================================================ */
+  function generateChart(song) {
+    const rng = mulberry32(song.seed);
+    const [num, den] = song.timeSig;
+    const secPerBeat = 60 / song.bpm;
+    const secPerBar = secPerBeat * num * (4 / den);
+    const notes = [];
+
+    let barOffset = 0;
+    song.sections.forEach((sec, secIdx) => {
+      const startBar = barOffset;
+      for (let b = 0; b < sec.bars; b++) {
+        const barStartTime = (startBar + b) * secPerBar;
+        // 每小节按 8 分音符网格生成候选位置（4/4 拍 → 8 个八分音符）
+        const subdivisions = 8;
+        for (let s = 0; s < subdivisions; s++) {
+          const density = sec.density;
+          // 第一拍和第三拍更容易有音符
+          const beatPos = s / 2; // 0,0.5,1,1.5,2,2.5,3,3.5
+          const strong = (s % 2 === 0) ? 1 : 0.55;
+          // 越靠近副歌密度越高；加入 rng 保证变化
+          const probability = density * strong * 0.72;
+          if (rng() < probability) {
+            const t = barStartTime + s * (secPerBeat / 2);
+            // 避免同一时刻过多音符：同一时间戳最多 1 个
+            if (!notes.some(n => Math.abs(n.time - t) < 0.01)) {
+              // 轨道选择：加权随机
+              const lane = pickLane(rng, song.laneBias);
+              notes.push({
+                time: t,
+                lane,
+                judged: false,
+                hit: false,
+                missed: false,
+                // 视觉微偏移，避免完全重叠
+                offset: (rng() - 0.5) * 6
+              });
+            }
+          }
+        }
+        // 副歌偶尔在反拍加一个十六分音符，增加爽感
+        if (sec.density >= 0.80 && rng() < 0.35) {
+          const t = barStartTime + secPerBar * (0.25 + rng() * 0.5);
+          if (!notes.some(n => Math.abs(n.time - t) < 0.01)) {
+            notes.push({
+              time: t,
+              lane: pickLane(rng, song.laneBias),
+              judged: false, hit: false, missed: false,
+              offset: (rng() - 0.5) * 6
+            });
+          }
+        }
+      }
+      barOffset += sec.bars;
+    });
+
+    // 加一个前摇：第一音符前留 2 秒
+    const leadIn = 2.0;
+    notes.forEach(n => n.time += leadIn);
+    notes.sort((a, b) => a.time - b.time);
+    return { notes, songDuration: notes.length ? notes[notes.length - 1].time + 3 : 0 };
+  }
+
+  function pickLane(rng, bias) {
+    const total = bias.reduce((a, b) => a + b, 0);
+    let r = rng() * total;
+    for (let i = 0; i < bias.length; i++) {
+      r -= bias[i];
+      if (r <= 0) return i;
+    }
+    return bias.length - 1;
+  }
+
+  /* ============================================================
+     游戏状态
+     ============================================================ */
+  let state = {
+    playing: false,
+    song: null,
+    notes: [],
+    songDuration: 0,
+    startTime: 0,
+    now: 0,
+    score: 0,
+    combo: 0,
+    maxCombo: 0,
+    totalJudged: 0,
+    hitCount: 0,
+    perfectCount: 0,
+    goodCount: 0,
+    missCount: 0,
+    laneFlash: [0, 0, 0, 0],
+    lanePressed: [false, false, false, false],
+    particles: []
+  };
+
+  const NOTE_SPEED = 0.42;     // 屏幕高度比例/秒，可调
+  const PERFECT_MS = 0.070;
+  const GOOD_MS = 0.140;
+  const MISS_MS = 0.220;
+
+  function startGame(song) {
+    const chart = generateChart(song);
+    state = {
+      playing: true,
+      song,
+      notes: chart.notes,
+      songDuration: chart.songDuration,
+      startTime: performance.now() / 1000,
+      now: 0,
+      score: 0,
+      combo: 0,
+      maxCombo: 0,
+      totalJudged: 0,
+      hitCount: 0,
+      perfectCount: 0,
+      goodCount: 0,
+      missCount: 0,
+      laneFlash: [0, 0, 0, 0],
+      lanePressed: [false, false, false, false],
+      particles: []
+    };
+    selectEl.classList.add('hidden');
+    resultEl.classList.remove('show');
+    updateHUD();
+    requestAnimationFrame(loop);
+  }
+
+  /* ============================================================
+     判定
+     ============================================================ */
+  function judgeLane(lane) {
+    if (!state.playing) return;
+    const t = state.now;
+    let best = null;
+    let bestDelta = Infinity;
+    for (const n of state.notes) {
+      if (n.judged || n.lane !== lane) continue;
+      const delta = Math.abs(n.time - t);
+      if (delta < bestDelta) {
+        bestDelta = delta;
+        best = n;
+      }
+    }
+    if (!best) {
+      // 空打不扣分，只闪一下
+      state.laneFlash[lane] = 0.15;
+      return;
+    }
+
+    if (bestDelta <= PERFECT_MS) {
+      best.judged = true; best.hit = true;
+      state.perfectCount++;
+      state.hitCount++;
+      state.totalJudged++;
+      state.combo++;
+      state.maxCombo = Math.max(state.maxCombo, state.combo);
+      state.score += 1000 + Math.min(state.combo, 50) * 2;
+      spawnParticles(best.lane, true);
+      state.laneFlash[lane] = 0.12;
+    } else if (bestDelta <= GOOD_MS) {
+      best.judged = true; best.hit = true;
+      state.goodCount++;
+      state.hitCount++;
+      state.totalJudged++;
+      state.combo++;
+      state.maxCombo = Math.max(state.maxCombo, state.combo);
+      state.score += 500 + Math.min(state.combo, 50);
+      spawnParticles(best.lane, false);
+      state.laneFlash[lane] = 0.12;
+    } else if (bestDelta <= MISS_MS) {
+      // 太早，不判定，但可以给一个“空打”反馈
+      state.laneFlash[lane] = 0.08;
+    }
+    updateHUD();
+  }
+
+  function spawnParticles(lane, perfect) {
+    const cx = laneStartX + lane * laneW + laneW / 2;
+    const count = perfect ? 10 : 6;
+    for (let i = 0; i < count; i++) {
+      state.particles.push({
+        x: cx + (Math.random() - 0.5) * 30,
+        y: judgeY + (Math.random() - 0.5) * 10,
+        vx: (Math.random() - 0.5) * 260,
+        vy: -Math.random() * 220 - 40,
+        life: 0.5 + Math.random() * 0.3,
+        maxLife: 0.5 + Math.random() * 0.3,
+        color: perfect ? '#7fd1ff' : '#ffd36c',
+        size: 2 + Math.random() * 3
+      });
+    }
+  }
+
+  /* ============================================================
+     主循环
+     ============================================================ */
+  function loop() {
+    if (!state.playing) return;
+    state.now = performance.now() / 1000 - state.startTime;
+
+    // 自动 MISS：超过判定窗口且未判定的音符
+    for (const n of state.notes) {
+      if (!n.judged && state.now - n.time > MISS_MS) {
+        n.judged = true;
+        n.missed = true;
+        state.missCount++;
+        state.totalJudged++;
+        state.combo = 0;
+      }
+    }
+
+    // 粒子更新
+    for (const p of state.particles) {
+      p.x += p.vx * 0.016;
+      p.y += p.vy * 0.016;
+      p.vy += 600 * 0.016;
+      p.life -= 0.016;
+    }
+    state.particles = state.particles.filter(p => p.life > 0);
+
+    // 轨道闪光衰减
+    for (let i = 0; i < 4; i++) {
+      if (state.laneFlash[i] > 0) state.laneFlash[i] = Math.max(0, state.laneFlash[i] - 0.016);
+    }
+
+    draw();
+
+    // 结束条件：所有音符判定完毕 且 过了最后一个音符 3 秒
+    if (state.totalJudged >= state.notes.length && state.now > state.songDuration) {
+      endGame();
+      return;
+    }
+    requestAnimationFrame(loop);
+  }
+
+  /* ============================================================
+     绘制
+     ============================================================ */
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    // 背景轨道
+    for (let i = 0; i < LANES; i++) {
+      const x = laneStartX + i * laneW;
+      // 轨道底色
+      ctx.fillStyle = 'rgba(255,255,255,0.018)';
+      ctx.fillRect(x, 0, laneW, H);
+      // 轨道分隔线
+      ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, H);
+      ctx.stroke();
+      // 按键按下高亮
+      if (state.lanePressed[i]) {
+        ctx.fillStyle = 'rgba(255,255,255,0.035)';
+        ctx.fillRect(x, 0, laneW, H);
+      }
+      // 闪光
+      if (state.laneFlash[i] > 0) {
+        ctx.fillStyle = `rgba(255,255,255,${state.laneFlash[i] * 0.5})`;
+        ctx.fillRect(x, 0, laneW, H);
+      }
+    }
+    // 最右分隔线
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.beginPath();
+    ctx.moveTo(W, 0); ctx.lineTo(W, H); ctx.stroke();
+
+    // 判定线
+    ctx.shadowColor = '#6c8cff';
+    ctx.shadowBlur = 18;
+    ctx.strokeStyle = 'rgba(140,170,255,0.65)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, judgeY);
+    ctx.lineTo(W, judgeY);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // 判定线下方按键提示
+    for (let i = 0; i < LANES; i++) {
+      const cx = laneStartX + i * laneW + laneW / 2;
+      ctx.fillStyle = state.lanePressed[i] ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.04)';
+      roundRect(cx - laneW * 0.32, judgeY + 12, laneW * 0.64, 34, 8);
+      ctx.fill();
+      ctx.fillStyle = state.lanePressed[i] ? '#fff' : '#5a6478';
+      ctx.font = '600 13px "Segoe UI", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(LANE_KEYS[i].toUpperCase(), cx, judgeY + 29);
+    }
+
+    // 音符
+    const travelDistance = judgeY; // 从 y=0 到判定线
+    for (const n of state.notes) {
+      if (n.judged && n.hit) continue;
+      if (n.judged && n.missed) continue;
+      const timeUntil = n.time - state.now;
+      // 音符到达判定线的时间 = timeUntil；当前 y = judgeY * (1 - timeUntil / travelTime)
+      const travelTime = judgeY / (H * NOTE_SPEED);
+      if (timeUntil > travelTime + 0.1) continue;
+      if (timeUntil < -MISS_MS - 0.1) continue;
+
+      const progress = 1 - timeUntil / travelTime;
+      const y = judgeY * progress;
+      const x = laneStartX + n.lane * laneW + laneW / 2 + (n.offset || 0);
+      const size = noteSize * (0.92 + 0.08 * Math.max(0, Math.min(1, 1 - Math.abs(timeUntil) / 0.2)));
+
+      // 光晕
+      ctx.shadowColor = LANE_COLORS[n.lane];
+      ctx.shadowBlur = 14;
+      ctx.fillStyle = LANE_COLORS[n.lane];
+      roundRect(x - size / 2, y - size * 0.28, size, size * 0.56, size * 0.18);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // 内部高光
+      ctx.fillStyle = 'rgba(255,255,255,0.75)';
+      roundRect(x - size * 0.28, y - size * 0.10, size * 0.56, size * 0.20, size * 0.08);
+      ctx.fill();
+    }
+
+    // 粒子
+    for (const p of state.particles) {
+      const alpha = Math.max(0, p.life / p.maxLife);
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * alpha, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  /* ============================================================
+     HUD / 结算
+     ============================================================ */
+  function updateHUD() {
+    HUD.score.textContent = state.score.toLocaleString();
+    HUD.combo.textContent = state.combo + ' COMBO';
+    const judged = state.totalJudged;
+    const acc = judged > 0
+      ? ((state.perfectCount * 100 + state.goodCount * 50) / (judged * 100) * 100).toFixed(2)
+      : '100.00';
+    HUD.acc.textContent = 'ACC ' + acc + '%';
+  }
+
+  function endGame() {
+    state.playing = false;
+    const judged = state.totalJudged || 1;
+    const accValue = (state.perfectCount * 100 + state.goodCount * 50) / (judged * 100) * 100;
+    const acc = accValue.toFixed(2);
+    let grade = 'C';
+    if (acc >= 98) grade = 'S';
+    else if (acc >= 92) grade = 'A';
+    else if (acc >= 80) grade = 'B';
+    if (state.missCount === 0) grade += '+';
+
+    resGrade.textContent = grade;
+    resDetail.innerHTML =
+      `ACC ${acc}%　｜　最大连击 ${state.maxCombo}<br>` +
+      `PERFECT ${state.perfectCount}　GOOD ${state.goodCount}　MISS ${state.missCount}`;
+    resultEl.classList.add('show');
+  }
+
+  /* ============================================================
+     输入
+     ============================================================ */
+  const keyToLane = {};
+  LANE_KEYS.forEach((k, i) => keyToLane[k] = i);
+
+  window.addEventListener('keydown', (e) => {
+    const k = e.key.toLowerCase();
+    if (k in keyToLane) {
+      e.preventDefault();
+      const lane = keyToLane[k];
+      if (!state.lanePressed[lane]) {
+        state.lanePressed[lane] = true;
+        judgeLane(lane);
+      }
+    }
+  });
+  window.addEventListener('keyup', (e) => {
+    const k = e.key.toLowerCase();
+    if (k in keyToLane) {
+      const lane = keyToLane[k];
+      state.lanePressed[lane] = false;
+    }
+  });
+
+  // 触屏/鼠标点击轨道
+  canvas.addEventListener('pointerdown', (e) => {
+    if (!state.playing) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const lane = Math.floor(x / laneW);
+    if (lane >= 0 && lane < LANES) {
+      state.lanePressed[lane] = true;
+      judgeLane(lane);
+    }
+  });
+  canvas.addEventListener('pointerup', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const lane = Math.floor(x / laneW);
+    if (lane >= 0 && lane < LANES) state.lanePressed[lane] = false;
+  });
+  canvas.addEventListener('pointerleave', () => {
+    state.lanePressed = [false, false, false, false];
+  });
+
+  /* ============================================================
+     选歌界面
+     ============================================================ */
+  SONGS.forEach(song => {
+    const btn = document.createElement('button');
+    btn.className = 'song-btn';
+    btn.innerHTML = `<span>${song.name}<br><span style="font-size:11px;color:#5a6478">${song.artist}</span></span>
+                     <span class="meta">${song.bpm} BPM<br>${song.key}</span>`;
+    btn.addEventListener('click', () => startGame(song));
+    songListEl.appendChild(btn);
+  });
+
+  resAgain.addEventListener('click', () => {
+    resultEl.classList.remove('show');
+    selectEl.classList.remove('hidden');
+  });
+
+  // 防止方向键滚动
+  window.addEventListener('keydown', (e) => {
+    if ([' ', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+      if (state.playing) e.preventDefault();
+    }
+  });
+})();
+</script>
+</body>
+</html>
