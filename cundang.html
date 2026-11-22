@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Rhythm Fall · 下落式音游</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{width:100%;height:100%;overflow:hidden;background:#05060c;
+    font-family:system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    color:#e8ecf8;user-select:none;-webkit-tap-highlight-color:transparent;}
+  canvas{display:block;position:absolute;inset:0;}
+
+  /* ---------- HUD ---------- */
+  #hud{position:absolute;top:0;left:0;right:0;padding:14px 20px;display:flex;
+    justify-content:space-between;align-items:flex-start;pointer-events:none;
+    opacity:0;transition:opacity .3s;z-index:5;}
+  #hud.on{opacity:1;}
+  .stat{display:flex;flex-direction:column;align-items:center;min-width:74px;}
+  .stat span{font-size:26px;font-weight:800;letter-spacing:.5px;
+    text-shadow:0 0 14px rgba(120,210,255,.7);font-variant-numeric:tabular-nums;}
+  .stat small{font-size:11px;opacity:.55;letter-spacing:3px;margin-top:2px;}
+  #comboBox span{color:#ffd75e;text-shadow:0 0 18px rgba(255,215,94,.85);}
+  #comboBox span{font-size:32px;}
+  #menuBtn{pointer-events:auto;position:absolute;top:14px;right:20px;
+    background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);
+    color:#cbd5f0;padding:7px 16px;border-radius:10px;font-size:12px;cursor:pointer;
+    letter-spacing:2px;transition:.2s;font-family:inherit;font-weight:600;}
+  #menuBtn:hover{background:rgba(120,180,255,.2);border-color:rgba(120,180,255,.5);color:#dceaff;}
+
+  /* ---------- 通用遮罩 ---------- */
+  .overlay{position:absolute;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:16px;z-index:10;
+    background:radial-gradient(circle at 50% 35%,rgba(30,42,90,.55),rgba(5,6,12,.96) 65%);
+    backdrop-filter:blur(6px);padding:20px;text-align:center;
+    transition:opacity .35s, visibility .35s;}
+  .overlay.hidden{opacity:0;visibility:hidden;pointer-events:none;}
+
+  h1{font-size:40px;font-weight:900;letter-spacing:6px;
+    background:linear-gradient(100deg,#6fe3ff,#a78bfa 45%,#ff7ab6);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 0 22px rgba(120,180,255,.45));}
+  .sub{font-size:12.5px;opacity:.5;letter-spacing:2.5px;margin-top:-8px;}
+
+  .file-btn{display:inline-block;padding:12px 30px;border-radius:14px;cursor:pointer;
+    background:linear-gradient(135deg,rgba(110,200,255,.18),rgba(167,139,250,.18));
+    border:1px solid rgba(130,180,255,.4);font-size:14px;letter-spacing:2px;
+    transition:.22s;font-weight:600;}
+  .file-btn:hover{background:linear-gradient(135deg,rgba(110,200,255,.32),rgba(167,139,250,.32));
+    box-shadow:0 0 26px rgba(120,180,255,.35);transform:translateY(-1px);}
+  .file-btn input{display:none;}
+
+  #fileName{font-size:12px;opacity:.55;max-width:80vw;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap;}
+
+  .diffs{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:6px;}
+  .diff{padding:14px 22px;border-radius:14px;cursor:pointer;font-size:13.5px;
+    background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.11);
+    color:#aab4d0;transition:.22s;line-height:1.5;font-weight:600;letter-spacing:1px;
+    min-width:128px;font-family:inherit;}
+  .diff em{display:block;font-style:normal;font-size:10.5px;opacity:.5;
+    letter-spacing:1.5px;margin-top:3px;font-weight:400;}
+  .diff:hover{background:rgba(255,255,255,.09);color:#e8ecf8;}
+  .diff.active{background:linear-gradient(135deg,rgba(110,200,255,.26),rgba(167,139,250,.26));
+    border-color:rgba(140,200,255,.75);color:#fff;
+    box-shadow:0 0 24px rgba(120,180,255,.35);}
+
+  #startBtn{padding:14px 58px;border-radius:15px;border:none;cursor:pointer;
+    font-size:16px;font-weight:800;letter-spacing:4px;color:#06131c;
+    background:linear-gradient(120deg,#7fe6ff,#a78bfa);
+    transition:.22s;box-shadow:0 0 30px rgba(120,200,255,.4);margin-top:4px;
+    font-family:inherit;}
+  #startBtn:hover:not(:disabled){transform:translateY(-2px);
+    box-shadow:0 0 44px rgba(140,210,255,.7);}
+  #startBtn:disabled{opacity:.3;cursor:not-allowed;box-shadow:none;}
+
+  #status{font-size:12.5px;opacity:.62;min-height:18px;letter-spacing:1px;}
+
+  /* ---------- 暂停菜单 ---------- */
+  #pauseMenu{gap:20px;}
+  .pause-title{font-size:26px;font-weight:900;letter-spacing:12px;
+    background:linear-gradient(100deg,#7fe6ff,#a78bfa);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 0 18px rgba(120,180,255,.4));}
+  .pause-section{display:flex;flex-direction:column;align-items:center;gap:9px;}
+  .section-label{font-size:11px;letter-spacing:3px;opacity:.55;}
+  #pauseMenu .diff{padding:9px 16px;min-width:92px;font-size:12px;border-radius:11px;}
+  #pauseMenu .diff em{font-size:9.5px;margin-top:2px;}
+
+  #volumeRow{display:flex;align-items:center;gap:12px;}
+  input[type=range]{-webkit-appearance:none;appearance:none;
+    width:min(260px,62vw);height:6px;border-radius:4px;outline:none;cursor:pointer;
+    background:rgba(255,255,255,.12);}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+    width:18px;height:18px;border-radius:50%;
+    background:linear-gradient(135deg,#7fe6ff,#a78bfa);
+    box-shadow:0 0 14px rgba(120,200,255,.8);cursor:pointer;}
+  input[type=range]::-moz-range-thumb{width:18px;height:18px;border:none;border-radius:50%;
+    background:linear-gradient(135deg,#7fe6ff,#a78bfa);
+    box-shadow:0 0 14px rgba(120,200,255,.8);cursor:pointer;}
+  #volVal{font-size:12px;opacity:.7;min-width:42px;text-align:left;
+    font-variant-numeric:tabular-nums;}
+
+  .pause-actions{display:flex;flex-direction:column;gap:10px;margin-top:4px;
+    width:min(280px,72vw);}
+  .pause-btn{padding:12px 20px;border-radius:12px;border:1px solid rgba(255,255,255,.16);
+    background:rgba(255,255,255,.05);color:#cfd8f0;font-size:13px;letter-spacing:3px;
+    font-weight:600;cursor:pointer;transition:.2s;font-family:inherit;}
+  .pause-btn:hover{background:rgba(255,255,255,.12);color:#fff;}
+  .pause-btn.primary{background:linear-gradient(120deg,rgba(127,230,255,.25),rgba(167,139,250,.25));
+    border-color:rgba(140,200,255,.6);color:#fff;}
+  .pause-btn.primary:hover{box-shadow:0 0 22px rgba(120,180,255,.45);transform:translateY(-1px);}
+
+  /* ---------- 结果面板 ---------- */
+  #result{position:absolute;inset:0;display:none;flex-direction:column;
+    align-items:center;justify-content:center;gap:10px;z-index:12;
+    background:radial-gradient(circle at 50% 40%,rgba(30,42,90,.75),rgba(5,6,12,.97) 70%);
+    backdrop-filter:blur(8px);}
+  #result.on{display:flex;}
+  #result h2{font-size:15px;letter-spacing:8px;opacity:.6;font-weight:600;}
+  #finalScore{font-size:62px;font-weight:900;letter-spacing:2px;
+    background:linear-gradient(100deg,#7fe6ff,#a78bfa,#ff7ab6);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 0 26px rgba(130,190,255,.5));font-variant-numeric:tabular-nums;}
+  .rstats{display:flex;gap:26px;margin:8px 0 6px;flex-wrap:wrap;justify-content:center;}
+  .rstat{text-align:center;min-width:70px;}
+  .rstat b{display:block;font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;}
+  .rstat small{font-size:10.5px;letter-spacing:2px;opacity:.5;}
+  .p-perfect{color:#ffd75e;} .p-good{color:#6fe3ff;} .p-miss{color:#ff6b81;}
+  #rank{font-size:44px;font-weight:900;letter-spacing:2px;
+    filter:drop-shadow(0 0 20px currentColor);}
+  #againBtn{padding:13px 44px;border-radius:14px;border:1px solid rgba(140,200,255,.6);
+    background:rgba(120,180,255,.14);color:#dceaff;font-size:14px;font-weight:700;
+    letter-spacing:3px;cursor:pointer;transition:.22s;margin-top:10px;font-family:inherit;}
+  #againBtn:hover{background:rgba(120,180,255,.3);box-shadow:0 0 26px rgba(120,180,255,.45);}
+</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<div id="hud">
+  <div class="stat"><span id="scoreEl">0</span><small>SCORE</small></div>
+  <div class="stat" id="comboBox"><span id="comboEl">0</span><small>COMBO</small></div>
+  <div class="stat"><span id="accEl">100%</span><small>ACC</small></div>
+  <button id="menuBtn">菜单</button>
+</div>
+
+<!-- 主菜单 -->
+<div class="overlay" id="menu">
+  <h1>RHYTHM FALL</h1>
+  <div class="sub">音 频 解 析 · 实 时 生 成 音 符</div>
+
+  <label class="file-btn">
+    选择音频文件
+    <input type="file" id="fileInput" accept="audio/*">
+  </label>
+  <div id="fileName">未选择文件</div>
+
+  <div class="diffs" id="menuDiffs">
+    <button class="diff active" data-diff="easy">简单<em>4 轨 · 舒缓</em></button>
+    <button class="diff" data-diff="normal">普通<em>6 轨 · 进阶</em></button>
+    <button class="diff" data-diff="hard">困难<em>8 轨 · 挑战</em></button>
+  </div>
+
+  <button id="startBtn" disabled>开 始</button>
+  <div id="status">请先选择一个音频文件</div>
+</div>
+
+<!-- 暂停菜单 -->
+<div class="overlay hidden" id="pauseMenu">
+  <div class="pause-title">暂 停</div>
+
+  <div class="pause-section">
+    <div class="section-label">难度（重玩生效）</div>
+    <div class="diffs" id="pauseDiffs">
+      <button class="diff" data-diff="easy">简单<em>4 轨</em></button>
+      <button class="diff" data-diff="normal">普通<em>6 轨</em></button>
+      <button class="diff" data-diff="hard">困难<em>8 轨</em></button>
+    </div>
+  </div>
+
+  <div class="pause-section">
+    <div class="section-label">音量</div>
+    <div id="volumeRow">
+      <input type="range" id="volumeSlider" min="0" max="100" value="80">
+      <span id="volVal">80%</span>
+    </div>
+  </div>
+
+  <div class="pause-actions">
+    <button class="pause-btn primary" id="resumeBtn">继 续 游 戏</button>
+    <button class="pause-btn" id="replayBtn">重 玩 本 歌</button>
+    <button class="pause-btn" id="reselectBtn">重 新 选 歌</button>
+  </div>
+</div>
+
+<!-- 结算 -->
+<div id="result">
+  <h2>RESULT</h2>
+  <div id="rank">S</div>
+  <div id="finalScore">0</div>
+  <div class="rstats">
+    <div class="rstat"><b class="p-perfect" id="rPerfect">0</b><small>PERFECT</small></div>
+    <div class="rstat"><b class="p-good" id="rGood">0</b><small>GOOD</small></div>
+    <div class="rstat"><b class="p-miss" id="rMiss">0</b><small>MISS</small></div>
+    <div class="rstat"><b id="rCombo">0</b><small>MAX COMBO</small></div>
+    <div class="rstat"><b id="rAcc">0%</b><small>ACCURACY</small></div>
+  </div>
+  <button id="againBtn">再 来 一 次</button>
+</div>
+
+<script>
+/* =========================================================
+   0. 基础工具
+   ========================================================= */
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function withAlpha(hex, a) {
+  const r = parseInt(hex.slice(1, 3), 16),
+        g = parseInt(hex.slice(3, 5), 16),
+        b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+function darken(hex, f) {
+  let r = parseInt(hex.slice(1, 3), 16) * f,
+      g = parseInt(hex.slice(3, 5), 16) * f,
+      b = parseInt(hex.slice(5, 7), 16) * f;
+  const h = v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0');
+  return '#' + h(r) + h(g) + h(b);
+}
+function rr(c, x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  c.beginPath();
+  c.moveTo(x + r, y);
+  c.arcTo(x + w, y, x + w, y + h, r);
+  c.arcTo(x + w, y + h, x, y + h, r);
+  c.arcTo(x, y + h, x, y, r);
+  c.arcTo(x, y, x + w, y, r);
+  c.closePath();
+}
+
+/* =========================================================
+   1. FFT（基-2 迭代版）
+   ========================================================= */
+function fft(re, im) {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) {
+      let t = re[i]; re[i] = re[j]; re[j] = t;
+      t = im[i]; im[i] = im[j]; im[j] = t;
+    }
+  }
+  for (let len = 2; len <= n; len <<= 1) {
+    const half = len >> 1;
+    const ang = -2 * Math.PI / len;
+    const wr = Math.cos(ang), wi = Math.sin(ang);
+    for (let i = 0; i < n; i += len) {
+      let cr = 1, ci = 0;
+      for (let k = 0; k < half; k++) {
+        const a = i + k, b = a + half;
+        const tr = re[b] * cr - im[b] * ci;
+        const ti = re[b] * ci + im[b] * cr;
+        re[b] = re[a] - tr; im[b] = im[a] - ti;
+        re[a] += tr;        im[a] += ti;
+        const ncr = cr * wr - ci * wi;
+        ci = cr * wi + ci * wr;
+        cr = ncr;
+      }
+    }
+  }
+}
+
+/* =========================================================
+   2. 难度配置
+   ========================================================= */
+const DIFFS = {
+  easy: {
+    label: '简单', lanes: 4,
+    keys: ['d', 'f', 'j', 'k'],
+    keyLabels: ['D', 'F', 'J', 'K'],
+    threshold: 0.10, ratio: 1.55, minGap: 0.30, minStrength: 0.20,
+    fallTime: 1.90, laneCooldown: 0.22
+  },
+  normal: {
+    label: '普通', lanes: 6,
+    keys: ['s', 'd', 'f', 'j', 'k', 'l'],
+    keyLabels: ['S', 'D', 'F', 'J', 'K', 'L'],
+    threshold: 0.060, ratio: 1.30, minGap: 0.155, minStrength: 0.10,
+    fallTime: 1.55, laneCooldown: 0.16
+  },
+  hard: {
+    label: '困难', lanes: 8,
+    keys: ['a', 's', 'd', 'f', 'j', 'k', 'l', ';'],
+    keyLabels: ['A', 'S', 'D', 'F', 'J', 'K', 'L', ';'],
+    threshold: 0.032, ratio: 1.12, minGap: 0.075, minStrength: 0.045,
+    fallTime: 1.25, laneCooldown: 0.11
+  }
+};
+
+const LANE_COLORS = [
+  '#4fc3f7', '#81c784', '#ffb74d', '#ef5350',
+  '#ba68c8', '#4dd0e1', '#ffd54f', '#f06292'
+];
+
+/* =========================================================
+   3. 音频分析
+   ========================================================= */
+async function analyzeBuffer(buffer, diffKey, onProgress) {
+  const cfg = DIFFS[diffKey];
+  const sr = buffer.sampleRate;
+  const chCount = buffer.numberOfChannels;
+  const chans = [];
+  for (let c = 0; c < chCount; c++) chans.push(buffer.getChannelData(c));
+
+  const factor = Math.max(1, Math.floor(sr / 11025));
+  const dsr = sr / factor;
+  const n = Math.floor(buffer.length / factor);
+  const mono = new Float32Array(n);
+
+  for (let i = 0; i < n; i++) {
+    let s = 0;
+    const base = i * factor;
+    for (let c = 0; c < chCount; c++) {
+      const ch = chans[c];
+      for (let j = 0; j < factor; j++) s += ch[base + j];
+    }
+    mono[i] = s / (factor * chCount);
+  }
+
+  let peak = 0;
+  for (let i = 0; i < n; i++) { const a = Math.abs(mono[i]); if (a > peak) peak = a; }
+  if (peak > 0) { const inv = 1 / peak; for (let i = 0; i < n; i++) mono[i] *= inv; }
+
+  onProgress(0.12);
+  await sleep(0);
+
+  const FRAME = 512, HOP = 256;
+  const numFrames = Math.max(2, Math.floor((n - FRAME) / HOP));
+  const win = new Float32Array(FRAME);
+  for (let i = 0; i < FRAME; i++) win[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (FRAME - 1));
+
+  const re = new Float32Array(FRAME);
+  const im = new Float32Array(FRAME);
+  const prevMag = new Float32Array(FRAME / 2);
+  const flux = new Float32Array(numFrames);
+
+  for (let f = 0; f < numFrames; f++) {
+    const off = f * HOP;
+    for (let i = 0; i < FRAME; i++) { re[i] = mono[off + i] * win[i]; im[i] = 0; }
+    fft(re, im);
+
+    let sum = 0;
+    for (let i = 1; i < FRAME / 2; i++) {
+      const mag = Math.sqrt(re[i] * re[i] + im[i] * im[i]);
+      const d = mag - prevMag[i];
+      if (d > 0) sum += d;
+      prevMag[i] = mag;
+    }
+    flux[f] = sum;
+
+    if ((f & 511) === 0) {
+      onProgress(0.12 + 0.68 * (f / numFrames));
+      await sleep(0);
+    }
+  }
+
+  let mx = 0;
+  for (let i = 0; i < numFrames; i++) if (flux[i] > mx) mx = flux[i];
+  if (mx > 0) for (let i = 0; i < numFrames; i++) flux[i] /= mx;
+
+  const sm = new Float32Array(numFrames);
+  for (let i = 1; i < numFrames - 1; i++)
+    sm[i] = 0.25 * flux[i - 1] + 0.5 * flux[i] + 0.25 * flux[i + 1];
+  sm[0] = flux[0]; sm[numFrames - 1] = flux[numFrames - 1];
+
+  onProgress(0.85);
+  await sleep(0);
+
+  const W = 30;
+  const peaks = [];
+  const meanCache = new Float32Array(numFrames);
+
+  const prefix = new Float64Array(numFrames + 1);
+  for (let i = 0; i < numFrames; i++) prefix[i + 1] = prefix[i] + sm[i];
+  for (let i = 0; i < numFrames; i++) {
+    const a = Math.max(0, i - W), b = Math.min(numFrames - 1, i + W);
+    meanCache[i] = (prefix[b + 1] - prefix[a]) / (b - a + 1);
+  }
+
+  for (let i = 2; i < numFrames - 2; i++) {
+    const v = sm[i];
+    if (v < cfg.threshold) continue;
+    if (v < sm[i - 1] || v < sm[i + 1]) continue;
+    if (v < meanCache[i] * cfg.ratio) continue;
+    const time = (i * HOP + FRAME / 2) / dsr;
+    peaks.push({ time, strength: v });
+  }
+
+  peaks.sort((a, b) => a.time - b.time);
+  const onsets = [];
+  let last = -1e9;
+  for (const p of peaks) {
+    if (p.time - last >= cfg.minGap) {
+      onsets.push(p);
+      last = p.time;
+    }
+  }
+
+  let maxS = 0;
+  for (const o of onsets) if (o.strength > maxS) maxS = o.strength;
+  const minS = maxS * cfg.minStrength;
+  const finalOnsets = onsets.filter(o => o.strength >= minS && o.time > 0.05);
+
+  onProgress(1);
+  return finalOnsets;
+}
+
+/* =========================================================
+   4. 生成音符
+   ========================================================= */
+function buildNotes(onsets, cfg) {
+  laneCount = cfg.lanes;
+  fallTime = cfg.fallTime;
+  laneFlash = new Array(laneCount).fill(0);
+  keyToLane = {};
+  cfg.keys.forEach((k, i) => keyToLane[k] = i);
+
+  laneNotes = Array.from({ length: laneCount }, () => []);
+  lanePtr = new Array(laneCount).fill(0);
+  allNotes = [];
+
+  const lastLaneTime = new Array(laneCount).fill(-1e9);
+  const usage = new Array(laneCount).fill(0);
+
+  for (const o of onsets) {
+    const cand = [];
+    for (let l = 0; l < laneCount; l++) {
+      if (o.time - lastLaneTime[l] < cfg.laneCooldown) continue;
+      cand.push(l);
+    }
+    if (!cand.length) continue;
+
+    let minUse = Infinity;
+    for (const l of cand) if (usage[l] < minUse) minUse = usage[l];
+    const pool = cand.filter(l => usage[l] <= minUse);
+    const lane = pool[(Math.random() * pool.length) | 0];
+
+    usage[lane]++;
+    lastLaneTime[lane] = o.time;
+
+    const note = { time: o.time, lane, judged: false, result: null };
+    allNotes.push(note);
+    laneNotes[lane].push(note);
+  }
+
+  allNotes.sort((a, b) => a.time - b.time);
+}
+
+/* =========================================================
+   5. 全局状态
+   ========================================================= */
+let canvas, ctx, dpr;
+
+let audioCtx = null;
+let masterGain = null;
+let masterVolume = 0.80;
+let decodedBuffer = null;
+let sourceNode = null;
+let startAt = 0;
+let duration = 0;
+
+let playing = false;
+let paused = false;
+let busy = false;          // 解析中
+let pausedOffset = 0;      // 暂停时的歌曲时间
+let songTime = 0;
+let rafId = null;
+
+let allNotes = [];
+let laneNotes = [];
+let lanePtr = [];
+let laneCount = 4;
+let fallTime = 1.6;
+let keyToLane = {};
+let laneFlash = [];
+let popups = [];
+
+let score = 0, combo = 0, maxCombo = 0;
+let counts = { perfect: 0, good: 0, miss: 0 };
+
+const PERFECT_WIN = 0.055;
+const GOOD_WIN = 0.135;
+
+let currentDiff = 'easy';
+let analysisCache = {};    // diffKey -> onsets
+
+/* =========================================================
+   6. 画布初始化
+   ========================================================= */
+function initCanvas() {
+  canvas = $('game');
+  ctx = canvas.getContext('2d', { alpha: false });
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+}
+function resizeCanvas() {
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = Math.floor(window.innerWidth * dpr);
+  canvas.height = Math.floor(window.innerHeight * dpr);
+  canvas.style.width = window.innerWidth + 'px';
+  canvas.style.height = window.innerHeight + 'px';
+}
+
+/* =========================================================
+   7. 渲染
+   ========================================================= */
+function draw(t) {
+  const W = window.innerWidth, H = window.innerHeight;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  ctx.fillStyle = '#05060c';
+  ctx.fillRect(0, 0, W, H);
+
+  const pfW = Math.min(W * 0.94, 760);
+  const pfX = (W - pfW) / 2;
+  const laneW = pfW / laneCount;
+  const judgeY = H - Math.max(88, H * 0.13);
+  const pps = judgeY / fallTime;
+
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, 'rgba(20,26,54,0.55)');
+  bg.addColorStop(1, 'rgba(8,10,22,0.92)');
+  ctx.fillStyle = bg;
+  ctx.fillRect(pfX, 0, pfW, H);
+
+  for (let i = 0; i < laneCount; i++) {
+    ctx.fillStyle = (i % 2)
+      ? 'rgba(255,255,255,0.022)'
+      : 'rgba(255,255,255,0.052)';
+    ctx.fillRect(pfX + i * laneW, 0, laneW, H);
+  }
+
+  for (let i = 0; i < laneCount; i++) {
+    if (laneFlash[i] > 0.01) {
+      const x = pfX + i * laneW;
+      const g = ctx.createLinearGradient(0, judgeY - 190, 0, judgeY);
+      g.addColorStop(0, 'rgba(255,255,255,0)');
+      g.addColorStop(1, withAlpha(LANE_COLORS[i % 8], 0.5 * laneFlash[i]));
+      ctx.fillStyle = g;
+      ctx.fillRect(x, judgeY - 190, laneW, 190);
+    }
+  }
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= laneCount; i++) {
+    const x = pfX + i * laneW;
+    ctx.beginPath();
+    ctx.moveTo(x + 0.5, 0);
+    ctx.lineTo(x + 0.5, H);
+    ctx.stroke();
+  }
+
+  // 音符
+  const nh = Math.max(14, Math.min(30, laneW * 0.42));
+  for (let i = 0; i < allNotes.length; i++) {
+    const nt = allNotes[i];
+    if (nt.judged) continue;
+    const dt = nt.time - t;
+    if (dt > fallTime + 0.3) continue;
+    const y = judgeY - dt * pps;
+    if (y < -nh * 2 || y > H + nh) continue;
+
+    const x = pfX + nt.lane * laneW + laneW * 0.1;
+    const w = laneW * 0.8;
+    drawNote(x, y - nh / 2, w, nh, LANE_COLORS[nt.lane % 8]);
+  }
+
+  // 判定线
+  ctx.save();
+  ctx.shadowColor = '#6fe3ff';
+  ctx.shadowBlur = 20;
+  ctx.fillStyle = 'rgba(150,230,255,0.9)';
+  ctx.fillRect(pfX, judgeY - 2, pfW, 3);
+  ctx.restore();
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (let i = 0; i < laneCount; i++) {
+    const cx = pfX + (i + 0.5) * laneW;
+    const label = DIFFS[currentDiff].keyLabels[i];
+    const hot = laneFlash[i] > 0.01;
+    ctx.font = `700 ${Math.min(20, laneW * 0.34)}px system-ui,-apple-system,sans-serif`;
+    ctx.fillStyle = hot
+      ? withAlpha(LANE_COLORS[i % 8], 0.95)
+      : 'rgba(190,205,235,0.42)';
+    ctx.fillText(label, cx, judgeY + 30);
+  }
+
+  for (let i = popups.length - 1; i >= 0; i--) {
+    const p = popups[i];
+    if (p.life <= 0) { popups.splice(i, 1); continue; }
+    const cx = pfX + (p.lane + 0.5) * laneW;
+    ctx.globalAlpha = Math.min(1, p.life);
+    ctx.fillStyle = p.color;
+    ctx.font = '800 17px system-ui,-apple-system,sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(p.text, cx, judgeY - 46 - (1 - p.life) * 46);
+    ctx.globalAlpha = 1;
+    p.life -= 0.055;
+  }
+
+  if (t < 0) {
+    const num = Math.ceil(-t);
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = '#e8f4ff';
+    ctx.font = '900 92px system-ui,-apple-system,sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = '#6fe3ff';
+    ctx.shadowBlur = 34;
+    ctx.fillText(num > 0 ? num : 'GO', W / 2, H / 2 - 30);
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+  }
+
+  const fadeL = ctx.createLinearGradient(pfX - 40, 0, pfX, 0);
+  fadeL.addColorStop(0, 'rgba(5,6,12,0)');
+  fadeL.addColorStop(1, 'rgba(5,6,12,0.85)');
+  ctx.fillStyle = fadeL;
+  ctx.fillRect(pfX - 40, 0, 40, H);
+
+  const fadeR = ctx.createLinearGradient(pfX + pfW, 0, pfX + pfW + 40, 0);
+  fadeR.addColorStop(0, 'rgba(5,6,12,0.85)');
+  fadeR.addColorStop(1, 'rgba(5,6,12,0)');
+  ctx.fillStyle = fadeR;
+  ctx.fillRect(pfX + pfW, 0, 40, H);
+}
+
+function drawNote(x, y, w, h, color) {
+  rr(ctx, x, y, w, h, Math.min(h / 2, 9));
+  const g = ctx.createLinearGradient(0, y, 0, y + h);
+  g.addColorStop(0, '#ffffff');
+  g.addColorStop(0.22, color);
+  g.addColorStop(1, darken(color, 0.55));
+  ctx.fillStyle = g;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 16;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  rr(ctx, x + 3, y + 2, w - 6, Math.max(2, h * 0.18), 2);
+  ctx.fill();
+}
+
+/* =========================================================
+   8. 音频上下文
+   ========================================================= */
+function ensureAudioCtx() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = masterVolume;
+    masterGain.connect(audioCtx.destination);
+  }
+}
+
+function getSongTime() {
+  if (!audioCtx) return 0;
+  return audioCtx.currentTime - startAt;
+}
+
+/* =========================================================
+   9. 游戏逻辑
+   ========================================================= */
+function judgeLane(lane) {
+  if (!playing || paused) return;
+  const t = songTime;
+  const list = laneNotes[lane];
+  let p = lanePtr[lane];
+  while (p < list.length && list[p].judged) p++;
+  lanePtr[lane] = p;
+
+  const note = list[p];
+  if (!note) return;
+
+  const d = Math.abs(t - note.time);
+  if (d > GOOD_WIN) return;
+
+  note.judged = true;
+  if (d <= PERFECT_WIN) {
+    note.result = 'perfect';
+    counts.perfect++;
+    combo++;
+    score += 300 + Math.min(combo, 100) * 2;
+    popups.push({ lane, text: 'PERFECT', color: '#ffd75e', life: 1 });
+  } else {
+    note.result = 'good';
+    counts.good++;
+    combo++;
+    score += 120 + Math.min(combo, 100);
+    popups.push({ lane, text: 'GOOD', color: '#6fe3ff', life: 1 });
+  }
+  if (combo > maxCombo) maxCombo = combo;
+  updateHUD();
+}
+
+function updateMisses(t) {
+  for (let l = 0; l < laneCount; l++) {
+    const list = laneNotes[l];
+    let p = lanePtr[l];
+    while (p < list.length) {
+      const note = list[p];
+      if (note.judged) { p++; continue; }
+      if (note.time + GOOD_WIN < t) {
+        note.judged = true;
+        note.result = 'miss';
+        counts.miss++;
+        combo = 0;
+        popups.push({ lane: l, text: 'MISS', color: '#ff6b81', life: 1 });
+        updateHUD();
+        p++;
+        continue;
+      }
+      break;
+    }
+    lanePtr[l] = p;
+  }
+}
+
+function updateHUD() {
+  $('scoreEl').textContent = score;
+  $('comboEl').textContent = combo;
+  const total = counts.perfect + counts.good + counts.miss;
+  const acc = total ? (counts.perfect + counts.good * 0.6) / total : 1;
+  $('accEl').textContent = (acc * 100).toFixed(1) + '%';
+}
+
+/* =========================================================
+   10. 主循环
+   ========================================================= */
+function loop() {
+  if (!playing || paused) return;
+  const t = getSongTime();
+  songTime = t;
+
+  for (let i = 0; i < laneFlash.length; i++) {
+    if (laneFlash[i] > 0) laneFlash[i] = Math.max(0, laneFlash[i] - 0.075);
+  }
+
+  if (t > -3) updateMisses(t);
+  draw(t);
+
+  if (t > duration + 1.2) {
+    endGame();
+    return;
+  }
+  rafId = requestAnimationFrame(loop);
+}
+
+/* =========================================================
+   11. 开始 / 暂停 / 恢复 / 结束
+   ========================================================= */
+function resetStats() {
+  score = 0; combo = 0; maxCombo = 0;
+  counts = { perfect: 0, good: 0, miss: 0 };
+  popups = [];
+  updateHUD();
+}
+
+function createLoading() {
+  const div = document.createElement('div');
+  div.style.cssText = `position:fixed;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:18px;z-index:20;
+    background:radial-gradient(circle at 50% 45%,rgba(30,42,90,.88),rgba(5,6,12,.98));
+    color:#dceaff;font-size:13px;letter-spacing:3px;`;
+  div.innerHTML = `
+    <div style="font-size:15px;font-weight:700;letter-spacing:6px;
+      background:linear-gradient(100deg,#7fe6ff,#a78bfa);
+      -webkit-background-clip:text;background-clip:text;color:transparent;">
+      解析音频中
+    </div>
+    <div style="width:min(320px,70vw);height:6px;border-radius:4px;
+      background:rgba(255,255,255,.1);overflow:hidden;">
+      <div class="load-fill" style="height:100%;width:0%;border-radius:4px;
+        background:linear-gradient(90deg,#6fe3ff,#a78bfa);transition:width .15s;"></div>
+    </div>
+    <div class="load-pct" style="opacity:.6;font-size:11px;">0%</div>`;
+  document.body.appendChild(div);
+  const bar = div.querySelector('.load-fill');
+  const pct = div.querySelector('.load-pct');
+  return {
+    setProgress(p) {
+      bar.style.width = (p * 100).toFixed(0) + '%';
+      pct.textContent = Math.round(p * 100) + '%';
+    },
+    remove() { div.remove(); }
+  };
+}
+
+async function startGame() {
+  if (!decodedBuffer) return;
+
+  ensureAudioCtx();
+  if (audioCtx.state === 'suspended') await audioCtx.resume();
+
+  // 清掉旧播放
+  if (sourceNode) { try { sourceNode.stop(); } catch (e) {} sourceNode = null; }
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+
+  $('menu').classList.add('hidden');
+  $('result').classList.remove('on');
+  $('pauseMenu').classList.add('hidden');
+  $('hud').classList.add('on');
+
+  paused = false;
+  playing = false;
+
+  // 解析（带缓存）
+  let onsets = analysisCache[currentDiff];
+  if (!onsets) {
+    busy = true;
+    const loading = createLoading();
+    try {
+      onsets = await analyzeBuffer(decodedBuffer, currentDiff, p => loading.setProgress(p));
+    } catch (err) {
+      loading.remove();
+      busy = false;
+      console.error(err);
+      alert('音频解析失败：' + err.message);
+      returnToMenu();
+      return;
+    }
+    loading.remove();
+    analysisCache[currentDiff] = onsets;
+    busy = false;
+  }
+
+  buildNotes(onsets, DIFFS[currentDiff]);
+  resetStats();
+
+  if (allNotes.length < 3) {
+    alert('未能从该音频中检测到足够的节奏点，请换一首节奏更明显的歌曲。');
+    returnToMenu();
+    return;
+  }
+
+  startAt = audioCtx.currentTime + 2.0;
+  sourceNode = audioCtx.createBufferSource();
+  sourceNode.buffer = decodedBuffer;
+  sourceNode.connect(masterGain);
+  sourceNode.start(startAt);
+
+  songTime = -2.0;
+  playing = true;
+  paused = false;
+  rafId = requestAnimationFrame(loop);
+}
+
+function pauseGame() {
+  if (!playing || paused || busy) return;
+  pausedOffset = getSongTime();
+  paused = true;
+  if (sourceNode) { try { sourceNode.stop(); } catch (e) {} sourceNode = null; }
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+
+  syncDiffButtons();
+  $('volumeSlider').value = Math.round(masterVolume * 100);
+  $('volVal').textContent = Math.round(masterVolume * 100) + '%';
+  $('pauseMenu').classList.remove('hidden');
+}
+
+function resumeGame() {
+  if (!playing || !paused) return;
+  paused = false;
+  $('pauseMenu').classList.add('hidden');
+
+  const now = audioCtx.currentTime;
+  sourceNode = audioCtx.createBufferSource();
+  sourceNode.buffer = decodedBuffer;
+  sourceNode.connect(masterGain);
+
+  if (pausedOffset >= 0) {
+    startAt = now - pausedOffset;
+    sourceNode.start(now, pausedOffset);
+  } else {
+    startAt = now - pausedOffset;   // 未来时间
+    sourceNode.start(startAt, 0);
+  }
+
+  rafId = requestAnimationFrame(loop);
+}
+
+async function replaySong() {
+  if (busy) return;
+  // 关闭暂停界面，用当前难度重开
+  $('pauseMenu').classList.add('hidden');
+  playing = false;
+  paused = false;
+  if (sourceNode) { try { sourceNode.stop(); } catch (e) {} sourceNode = null; }
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  await startGame();
+}
+
+function returnToMenu() {
+  playing = false;
+  paused = false;
+  busy = false;
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  if (sourceNode) { try { sourceNode.stop(); } catch (e) {} sourceNode = null; }
+
+  $('hud').classList.remove('on');
+  $('pauseMenu').classList.add('hidden');
+  $('result').classList.remove('on');
+  $('menu').classList.remove('hidden');
+  $('startBtn').disabled = !decodedBuffer;
+  if (decodedBuffer) {
+    $('status').textContent =
+      `时长 ${duration.toFixed(1)}s · 采样率 ${decodedBuffer.sampleRate}Hz · 可以开始了`;
+  } else {
+    $('status').textContent = '请先选择一个音频文件';
+  }
+}
+
+function endGame() {
+  playing = false;
+  paused = false;
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  if (sourceNode) { try { sourceNode.stop(); } catch (e) {} sourceNode = null; }
+  $('hud').classList.remove('on');
+
+  const total = counts.perfect + counts.good + counts.miss;
+  const acc = total ? (counts.perfect + counts.good * 0.6) / total : 0;
+
+  let rank = 'D';
+  if (acc >= 0.98 && counts.miss === 0) rank = 'S';
+  else if (acc >= 0.93) rank = 'A';
+  else if (acc >= 0.85) rank = 'B';
+  else if (acc >= 0.70) rank = 'C';
+
+  const rankColors = {
+    S: '#ffd75e', A: '#6fe3ff', B: '#a78bfa', C: '#81c784', D: '#ff6b81'
+  };
+
+  $('finalScore').textContent = score;
+  $('rPerfect').textContent = counts.perfect;
+  $('rGood').textContent = counts.good;
+  $('rMiss').textContent = counts.miss;
+  $('rCombo').textContent = maxCombo;
+  $('rAcc').textContent = (acc * 100).toFixed(1) + '%';
+  $('rank').textContent = rank;
+  $('rank').style.color = rankColors[rank];
+  $('result').classList.add('on');
+}
+
+/* =========================================================
+   12. 输入
+   ========================================================= */
+function bindInput() {
+  window.addEventListener('keydown', e => {
+    if (busy) return;
+
+    if (e.key === 'Escape') {
+      if (paused) { resumeGame(); e.preventDefault(); return; }
+      if (playing) { pauseGame(); e.preventDefault(); return; }
+    }
+
+    if (!playing || paused) return;
+
+    const k = e.key.toLowerCase();
+    const lane = keyToLane[k];
+    if (lane === undefined) return;
+
+    e.preventDefault();
+    if (e.repeat) return;
+
+    laneFlash[lane] = 1;
+    judgeLane(lane);
+  });
+
+  window.addEventListener('keyup', e => {
+    const k = e.key.toLowerCase();
+    const lane = keyToLane[k];
+    if (lane !== undefined) laneFlash[lane] = Math.max(laneFlash[lane] * 0.3, 0);
+  });
+
+  // 触屏 / 鼠标
+  canvas.addEventListener('pointerdown', e => {
+    if (!playing || paused) return;
+    const W = window.innerWidth;
+    const pfW = Math.min(W * 0.94, 760);
+    const pfX = (W - pfW) / 2;
+    const laneW = pfW / laneCount;
+    const x = e.clientX;
+    if (x < pfX || x > pfX + pfW) return;
+    const lane = Math.floor((x - pfX) / laneW);
+    if (lane < 0 || lane >= laneCount) return;
+    laneFlash[lane] = 1;
+    judgeLane(lane);
+  });
+}
+
+/* =========================================================
+   13. UI 绑定
+   ========================================================= */
+function syncDiffButtons() {
+  document.querySelectorAll('.diff').forEach(b => {
+    b.classList.toggle('active', b.dataset.diff === currentDiff);
+  });
+}
+
+function bindUI() {
+  const fileInput = $('fileInput');
+
+  fileInput.addEventListener('change', async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    $('fileName').textContent = file.name;
+    $('startBtn').disabled = true;
+    $('status').textContent = '正在解码音频…';
+
+    try {
+      ensureAudioCtx();
+      const arr = await file.arrayBuffer();
+      decodedBuffer = await audioCtx.decodeAudioData(arr);
+      duration = decodedBuffer.duration;
+      analysisCache = {};                 // 换歌清空谱面缓存
+      $('status').textContent =
+        `时长 ${duration.toFixed(1)}s · 采样率 ${decodedBuffer.sampleRate}Hz · 可以开始了`;
+      $('startBtn').disabled = false;
+    } catch (err) {
+      console.error(err);
+      $('status').textContent = '解码失败，请换一个音频文件';
+      decodedBuffer = null;
+      $('startBtn').disabled = true;
+    }
+  });
+
+  // 所有难度按钮（主菜单 + 暂停菜单共用）
+  document.querySelectorAll('.diff').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentDiff = btn.dataset.diff;
+      syncDiffButtons();
+    });
+  });
+
+  $('startBtn').addEventListener('click', () => {
+    if (!decodedBuffer) return;
+    startGame();
+  });
+
+  // 菜单键 → 暂停
+  $('menuBtn').addEventListener('click', pauseGame);
+
+  // 暂停菜单操作
+  $('resumeBtn').addEventListener('click', resumeGame);
+  $('replayBtn').addEventListener('click', replaySong);
+  $('reselectBtn').addEventListener('click', returnToMenu);
+
+  // 音量
+  const slider = $('volumeSlider');
+  slider.addEventListener('input', () => {
+    masterVolume = slider.value / 100;
+    $('volVal').textContent = slider.value + '%';
+    if (masterGain && audioCtx) {
+      masterGain.gain.setTargetAtTime(masterVolume, audioCtx.currentTime, 0.02);
+    }
+  });
+
+  // 结算再来一次
+  $('againBtn').addEventListener('click', () => {
+    $('result').classList.remove('on');
+    startGame();
+  });
+
+  syncDiffButtons();
+}
+
+/* =========================================================
+   14. 启动
+   ========================================================= */
+initCanvas();
+bindUI();
+bindInput();
+draw(0);
+</script>
+</body>
+</html>

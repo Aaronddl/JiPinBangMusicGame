@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>Rhythm Fall · 下落式音游</title>
+<title>极品帮音游</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box;}
   html,body{width:100%;height:100%;overflow:hidden;background:#05060c;
@@ -20,8 +20,7 @@
   .stat span{font-size:26px;font-weight:800;letter-spacing:.5px;
     text-shadow:0 0 14px rgba(120,210,255,.7);font-variant-numeric:tabular-nums;}
   .stat small{font-size:11px;opacity:.55;letter-spacing:3px;margin-top:2px;}
-  #comboBox span{color:#ffd75e;text-shadow:0 0 18px rgba(255,215,94,.85);}
-  #comboBox span{font-size:32px;}
+  #comboBox span{color:#ffd75e;text-shadow:0 0 18px rgba(255,215,94,.85);font-size:32px;}
   #menuBtn{pointer-events:auto;position:absolute;top:14px;right:20px;
     background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);
     color:#cbd5f0;padding:7px 16px;border-radius:10px;font-size:12px;cursor:pointer;
@@ -36,60 +35,155 @@
     transition:opacity .35s, visibility .35s;}
   .overlay.hidden{opacity:0;visibility:hidden;pointer-events:none;}
 
-  h1{font-size:40px;font-weight:900;letter-spacing:6px;
+  h1{font-size:36px;font-weight:900;letter-spacing:6px;
     background:linear-gradient(100deg,#6fe3ff,#a78bfa 45%,#ff7ab6);
     -webkit-background-clip:text;background-clip:text;color:transparent;
-    filter:drop-shadow(0 0 22px rgba(120,180,255,.45));}
-  .sub{font-size:12.5px;opacity:.5;letter-spacing:2.5px;margin-top:-8px;}
+    filter:drop-shadow(0 0 22px rgba(120,180,255,.45));
+    flex-shrink:0;line-height:1.1;}
+  .sub{font-size:12px;opacity:.5;letter-spacing:2.5px;margin-top:-4px;flex-shrink:0;}
 
-  .file-btn{display:inline-block;padding:12px 30px;border-radius:14px;cursor:pointer;
-    background:linear-gradient(135deg,rgba(110,200,255,.18),rgba(167,139,250,.18));
-    border:1px solid rgba(130,180,255,.4);font-size:14px;letter-spacing:2px;
-    transition:.22s;font-weight:600;}
-  .file-btn:hover{background:linear-gradient(135deg,rgba(110,200,255,.32),rgba(167,139,250,.32));
-    box-shadow:0 0 26px rgba(120,180,255,.35);transform:translateY(-1px);}
-  .file-btn input{display:none;}
+  /* ---------- 主菜单（固定视口，不出现页面滚动） ---------- */
+  #menu{
+    display:flex;flex-direction:column;justify-content:flex-start;align-items:stretch;
+    padding:14px 18px;overflow:hidden;gap:0;
+  }
+  #menu .menu-inner{
+    flex:1;display:flex;flex-direction:column;gap:9px;
+    min-height:0;max-width:660px;width:100%;margin:0 auto;
+    text-align:center;
+  }
 
-  #fileName{font-size:12px;opacity:.55;max-width:80vw;overflow:hidden;
-    text-overflow:ellipsis;white-space:nowrap;}
+  .section-label{font-size:10.5px;letter-spacing:4px;opacity:.5;flex-shrink:0;}
 
-  .diffs{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:6px;}
-  .diff{padding:14px 22px;border-radius:14px;cursor:pointer;font-size:13.5px;
+  /* 提示条（file:// 时出现） */
+  #fileWarn{display:none;padding:7px 12px;border-radius:9px;
+    background:rgba(255,180,80,.12);border:1px solid rgba(255,180,80,.4);
+    color:#ffd18a;font-size:11px;line-height:1.55;
+    max-width:100%;text-align:left;flex-shrink:0;}
+  #fileWarn b{color:#ffe3a3;}
+
+  /* 难度按钮（3 列 grid，永远不换行） */
+  .diffs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:9px;width:100%;flex-shrink:0;}
+  .diff{padding:9px 6px;border-radius:11px;cursor:pointer;font-size:13px;
     background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.11);
-    color:#aab4d0;transition:.22s;line-height:1.5;font-weight:600;letter-spacing:1px;
-    min-width:128px;font-family:inherit;}
-  .diff em{display:block;font-style:normal;font-size:10.5px;opacity:.5;
-    letter-spacing:1.5px;margin-top:3px;font-weight:400;}
+    color:#aab4d0;transition:.2s;line-height:1.35;font-weight:600;letter-spacing:.5px;
+    font-family:inherit;min-width:0;}
+  .diff em{display:block;font-style:normal;font-size:9.5px;opacity:.5;
+    letter-spacing:1px;margin-top:1px;font-weight:400;}
   .diff:hover{background:rgba(255,255,255,.09);color:#e8ecf8;}
   .diff.active{background:linear-gradient(135deg,rgba(110,200,255,.26),rgba(167,139,250,.26));
     border-color:rgba(140,200,255,.75);color:#fff;
-    box-shadow:0 0 24px rgba(120,180,255,.35);}
+    box-shadow:0 0 22px rgba(120,180,255,.35);}
 
-  #startBtn{padding:14px 58px;border-radius:15px;border:none;cursor:pointer;
-    font-size:16px;font-weight:800;letter-spacing:4px;color:#06131c;
+  /* ---------- 歌单列表（自适应剩余空间，内部滚动） ---------- */
+  .song-list-wrap{
+    flex:1 1 auto;min-height:64px;
+    overflow-y:auto;overflow-x:hidden;
+    border-radius:12px;
+    background:rgba(255,255,255,.022);
+    border:1px solid rgba(255,255,255,.06);
+    padding:6px;
+    text-align:left;
+    scrollbar-width:thin;
+    scrollbar-color:rgba(120,180,255,.4) rgba(255,255,255,.04);
+  }
+  .song-list-wrap::-webkit-scrollbar{width:7px;}
+  .song-list-wrap::-webkit-scrollbar-track{
+    background:rgba(255,255,255,.04);border-radius:4px;}
+  .song-list-wrap::-webkit-scrollbar-thumb{
+    background:rgba(120,180,255,.35);border-radius:4px;}
+  .song-list-wrap::-webkit-scrollbar-thumb:hover{
+    background:rgba(120,180,255,.6);}
+
+  .song-item{
+    display:flex;align-items:center;gap:11px;
+    width:100%;padding:9px 12px;margin-bottom:6px;
+    border-radius:10px;
+    background:rgba(255,255,255,.045);
+    border:1px solid rgba(255,255,255,.09);
+    color:#dbe4ff;text-align:left;cursor:pointer;
+    transition:.18s;font-family:inherit;flex-shrink:0;
+  }
+  .song-item:last-child{margin-bottom:0;}
+  .song-item:hover{
+    background:rgba(120,180,255,.14);
+    border-color:rgba(140,200,255,.5);
+    transform:translateX(3px);
+  }
+  .song-item:active{transform:translateX(1px) scale(.995);}
+
+  .song-dot{
+    width:34px;height:34px;border-radius:9px;flex-shrink:0;
+    position:relative;
+    background:linear-gradient(135deg,var(--c,#6fe3ff),rgba(255,255,255,.15));
+  }
+  .song-dot::after{
+    content:'';position:absolute;inset:0;border-radius:inherit;
+    box-shadow:0 0 14px var(--c,#6fe3ff);opacity:.55;pointer-events:none;
+  }
+  .song-info{flex:1;min-width:0;}
+  .song-info b{
+    display:block;font-size:13px;letter-spacing:.5px;font-weight:700;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .song-info em{
+    display:block;font-style:normal;font-size:10.5px;opacity:.5;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    margin-top:2px;letter-spacing:.5px;
+  }
+  .song-play{
+    font-size:12px;color:var(--c,#6fe3ff);opacity:.5;
+    transition:.18s;flex-shrink:0;font-weight:700;
+  }
+  .song-item:hover .song-play{opacity:1;transform:translateX(2px);}
+
+  .song-empty{
+    opacity:.45;font-size:12px;padding:20px 12px;text-align:center;line-height:1.7;
+  }
+
+  /* 分隔线 */
+  .or-divider{display:flex;align-items:center;gap:12px;width:100%;
+    font-size:10.5px;letter-spacing:2px;opacity:.4;flex-shrink:0;}
+  .or-divider::before,.or-divider::after{content:'';flex:1;height:1px;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.28),transparent);}
+
+  .file-btn{display:inline-block;padding:9px 24px;border-radius:12px;cursor:pointer;
+    background:linear-gradient(135deg,rgba(110,200,255,.18),rgba(167,139,250,.18));
+    border:1px solid rgba(130,180,255,.4);font-size:12.5px;letter-spacing:2px;
+    transition:.2s;font-weight:600;flex-shrink:0;}
+  .file-btn:hover{background:linear-gradient(135deg,rgba(110,200,255,.32),rgba(167,139,250,.32));
+    box-shadow:0 0 22px rgba(120,180,255,.35);transform:translateY(-1px);}
+  .file-btn input{display:none;}
+
+  #fileName{font-size:11px;opacity:.55;max-width:100%;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap;flex-shrink:0;}
+
+  #startBtn{padding:11px 48px;border-radius:13px;border:none;cursor:pointer;
+    font-size:14px;font-weight:800;letter-spacing:4px;color:#06131c;
     background:linear-gradient(120deg,#7fe6ff,#a78bfa);
-    transition:.22s;box-shadow:0 0 30px rgba(120,200,255,.4);margin-top:4px;
-    font-family:inherit;}
+    transition:.22s;box-shadow:0 0 26px rgba(120,200,255,.4);
+    font-family:inherit;flex-shrink:0;align-self:center;}
   #startBtn:hover:not(:disabled){transform:translateY(-2px);
-    box-shadow:0 0 44px rgba(140,210,255,.7);}
+    box-shadow:0 0 38px rgba(140,210,255,.7);}
   #startBtn:disabled{opacity:.3;cursor:not-allowed;box-shadow:none;}
 
-  #status{font-size:12.5px;opacity:.62;min-height:18px;letter-spacing:1px;}
+  #status{font-size:11px;opacity:.6;min-height:16px;letter-spacing:.5px;flex-shrink:0;}
 
   /* ---------- 暂停菜单 ---------- */
-  #pauseMenu{gap:20px;}
+  #pauseMenu{gap:18px;}
   .pause-title{font-size:26px;font-weight:900;letter-spacing:12px;
     background:linear-gradient(100deg,#7fe6ff,#a78bfa);
     -webkit-background-clip:text;background-clip:text;color:transparent;
     filter:drop-shadow(0 0 18px rgba(120,180,255,.4));}
-  .pause-section{display:flex;flex-direction:column;align-items:center;gap:9px;}
-  .section-label{font-size:11px;letter-spacing:3px;opacity:.55;}
-  #pauseMenu .diff{padding:9px 16px;min-width:92px;font-size:12px;border-radius:11px;}
-  #pauseMenu .diff em{font-size:9.5px;margin-top:2px;}
+  .pause-section{display:flex;flex-direction:column;align-items:center;gap:9px;width:100%;}
+  #pauseMenu .diffs{max-width:340px;margin:0 auto;}
+  #pauseMenu .diff{padding:8px 4px;font-size:11.5px;}
+  #pauseMenu .diff em{font-size:9px;}
 
   #volumeRow{display:flex;align-items:center;gap:12px;}
   input[type=range]{-webkit-appearance:none;appearance:none;
-    width:min(260px,62vw);height:6px;border-radius:4px;outline:none;cursor:pointer;
+    width:min(240px,60vw);height:6px;border-radius:4px;outline:none;cursor:pointer;
     background:rgba(255,255,255,.12);}
   input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
     width:18px;height:18px;border-radius:50%;
@@ -111,7 +205,7 @@
     border-color:rgba(140,200,255,.6);color:#fff;}
   .pause-btn.primary:hover{box-shadow:0 0 22px rgba(120,180,255,.45);transform:translateY(-1px);}
 
-  /* ---------- 结果面板 ---------- */
+  /* ---------- 结果 ---------- */
   #result{position:absolute;inset:0;display:none;flex-direction:column;
     align-items:center;justify-content:center;gap:10px;z-index:12;
     background:radial-gradient(circle at 50% 40%,rgba(30,42,90,.75),rgba(5,6,12,.97) 70%);
@@ -133,6 +227,38 @@
     background:rgba(120,180,255,.14);color:#dceaff;font-size:14px;font-weight:700;
     letter-spacing:3px;cursor:pointer;transition:.22s;margin-top:10px;font-family:inherit;}
   #againBtn:hover{background:rgba(120,180,255,.3);box-shadow:0 0 26px rgba(120,180,255,.45);}
+
+  /* ---------- 响应式：矮屏压缩 ---------- */
+  @media (max-height: 680px) {
+    #menu{padding:10px 16px;}
+    #menu .menu-inner{gap:7px;}
+    h1{font-size:26px;letter-spacing:4px;}
+    .sub{font-size:10.5px;letter-spacing:1.5px;}
+    .section-label{font-size:9.5px;letter-spacing:3px;}
+    .diff{padding:7px 4px;font-size:12px;}
+    .diff em{font-size:9px;}
+    .song-item{padding:7px 10px;}
+    .song-dot{width:28px;height:28px;border-radius:8px;}
+    .song-info b{font-size:12px;}
+    .song-info em{font-size:10px;}
+    #startBtn{padding:9px 40px;font-size:13px;}
+    #fileName{font-size:10.5px;}
+    #status{font-size:10.5px;}
+  }
+  @media (max-height: 560px) {
+    #menu .sub{display:none;}
+    h1{font-size:22px;}
+    #menu .menu-inner{gap:6px;}
+    .song-item{padding:6px 10px;}
+    .song-dot{width:24px;height:24px;}
+    .file-btn{padding:7px 20px;font-size:11.5px;}
+    #startBtn{padding:8px 34px;font-size:12px;}
+  }
+  @media (max-width: 460px) {
+    h1{font-size:24px;letter-spacing:3px;}
+    .diff{font-size:11.5px;}
+    .song-info b{font-size:12px;}
+  }
 </style>
 </head>
 <body>
@@ -146,25 +272,40 @@
   <button id="menuBtn">菜单</button>
 </div>
 
-<!-- 主菜单 -->
+<!-- 主菜单：固定视口，内部歌单可滚动 -->
 <div class="overlay" id="menu">
-  <h1>RHYTHM FALL</h1>
-  <div class="sub">音 频 解 析 · 实 时 生 成 音 符</div>
+  <div class="menu-inner">
+    <h1>RHYTHM FALL</h1>
+    <div class="sub">音 频 解 析 · 实 时 生 成 音 符</div>
 
-  <label class="file-btn">
-    选择音频文件
-    <input type="file" id="fileInput" accept="audio/*">
-  </label>
-  <div id="fileName">未选择文件</div>
+    <div id="fileWarn">
+      ⚠️ 当前为 <b>file://</b> 模式，浏览器会阻止加载本地音频。
+      请用本地服务器打开（如 <b>python -m http.server</b>）或部署到 GitHub Pages。
+    </div>
 
-  <div class="diffs" id="menuDiffs">
-    <button class="diff active" data-diff="easy">简单<em>4 轨 · 舒缓</em></button>
-    <button class="diff" data-diff="normal">普通<em>6 轨 · 进阶</em></button>
-    <button class="diff" data-diff="hard">困难<em>8 轨 · 挑战</em></button>
+    <div class="section-label">选 择 难 度</div>
+    <div class="diffs" id="menuDiffs">
+      <button class="diff active" data-diff="easy">简单<em>4 轨 · 舒缓</em></button>
+      <button class="diff" data-diff="normal">普通<em>6 轨 · 进阶</em></button>
+      <button class="diff" data-diff="hard">困难<em>8 轨 · 挑战</em></button>
+    </div>
+
+    <div class="section-label">内 置 歌 单</div>
+    <div class="song-list-wrap" id="songListWrap">
+      <div class="song-list" id="songList"></div>
+    </div>
+
+    <div class="or-divider">或使用自己的音频</div>
+
+    <label class="file-btn">
+      选择音频文件
+      <input type="file" id="fileInput" accept="audio/*">
+    </label>
+    <div id="fileName">未选择文件</div>
+
+    <button id="startBtn" disabled>开 始</button>
+    <div id="status">请选择内置歌曲或上传音频文件</div>
   </div>
-
-  <button id="startBtn" disabled>开 始</button>
-  <div id="status">请先选择一个音频文件</div>
 </div>
 
 <!-- 暂停菜单 -->
@@ -211,6 +352,26 @@
 </div>
 
 <script>
+/* ============================================================
+   ⚙️  歌曲配置区
+   ------------------------------------------------------------
+   把音频文件放到网页所在目录的 songs/ 文件夹里（没有就新建一个），
+   然后修改下面的列表即可。支持 .mp3 / .ogg / .wav / .m4a 等
+   浏览器能解码的格式。
+
+   ⚠️ 必须通过 http 服务器打开本页面（如 python -m http.server），
+      直接双击以 file:// 打开会因浏览器安全策略无法加载音频。
+   ============================================================ */
+const SONG_LIST = [
+  { url: 'songs/孤勇者.ogg', name: '孤勇者', tag: '', color: '#a78bfa' },
+  { url: 'songs/花海.ogg', name: '花海', tag: '', color: '#a78bfa' },
+  { url: 'songs/你许的愿.ogg', name: '你许的愿', tag: '', color: '#a78bfa' },
+  { url: 'songs/传奇永不熄.ogg', name: '传奇永不熄', tag: '', color: '#a78bfa' },
+  { url: 'songs/HATENA.flac', name: 'HATENA', tag: '', color: '#a78bfa' },
+  { url: 'songs/DREAMS COME TRUE.ogg', name: 'DREAMS COME TRUE', tag: '', color: '#a78bfa' },
+  { url: 'songs/BACK-ON(バックオン)-ニブンノイチ(二分之一).flac', name: 'BACK-ON(バックオン)-ニブンノイチ(二分之一)', tag: '', color: '#a78bfa' },
+];
+
 /* =========================================================
    0. 基础工具
    ========================================================= */
@@ -308,7 +469,40 @@ const LANE_COLORS = [
 ];
 
 /* =========================================================
-   3. 音频分析
+   3. 从 URL 加载音频（带下载进度）
+   ========================================================= */
+async function fetchAudioBuffer(url, onProgress) {
+  const resp = await fetch(url);
+  if (!resp.ok) {
+    if (resp.status === 404) throw new Error('文件不存在（404）');
+    throw new Error('HTTP ' + resp.status);
+  }
+
+  if (resp.body && resp.body.getReader) {
+    const total = parseInt(resp.headers.get('content-length') || '0', 10);
+    const reader = resp.body.getReader();
+    const chunks = [];
+    let received = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      received += value.length;
+      if (onProgress) onProgress(total > 0 ? Math.min(1, received / total) : 0);
+    }
+
+    const out = new Uint8Array(received);
+    let off = 0;
+    for (const c of chunks) { out.set(c, off); off += c.length; }
+    return out.buffer;
+  }
+
+  return await resp.arrayBuffer();
+}
+
+/* =========================================================
+   4. 音频分析（频谱通量 → 音符时间点）
    ========================================================= */
 async function analyzeBuffer(buffer, diffKey, onProgress) {
   const cfg = DIFFS[diffKey];
@@ -421,7 +615,7 @@ async function analyzeBuffer(buffer, diffKey, onProgress) {
 }
 
 /* =========================================================
-   4. 生成音符
+   5. 生成音符
    ========================================================= */
 function buildNotes(onsets, cfg) {
   laneCount = cfg.lanes;
@@ -462,7 +656,7 @@ function buildNotes(onsets, cfg) {
 }
 
 /* =========================================================
-   5. 全局状态
+   6. 全局状态
    ========================================================= */
 let canvas, ctx, dpr;
 
@@ -473,11 +667,12 @@ let decodedBuffer = null;
 let sourceNode = null;
 let startAt = 0;
 let duration = 0;
+let currentSongLabel = '';
 
 let playing = false;
 let paused = false;
-let busy = false;          // 解析中
-let pausedOffset = 0;      // 暂停时的歌曲时间
+let busy = false;
+let pausedOffset = 0;
 let songTime = 0;
 let rafId = null;
 
@@ -490,6 +685,13 @@ let keyToLane = {};
 let laneFlash = [];
 let popups = [];
 
+let particles = [];
+let ripples = [];
+let linePulse = 0;
+let comboPulse = 0;
+let flashAlpha = 0;
+let bgPulse = 0;
+
 let score = 0, combo = 0, maxCombo = 0;
 let counts = { perfect: 0, good: 0, miss: 0 };
 
@@ -497,10 +699,11 @@ const PERFECT_WIN = 0.055;
 const GOOD_WIN = 0.135;
 
 let currentDiff = 'easy';
-let analysisCache = {};    // diffKey -> onsets
+let analysisCache = {};
+const songBufferCache = new Map();
 
 /* =========================================================
-   6. 画布初始化
+   7. 画布 & 几何
    ========================================================= */
 function initCanvas() {
   canvas = $('game');
@@ -515,44 +718,54 @@ function resizeCanvas() {
   canvas.style.width = window.innerWidth + 'px';
   canvas.style.height = window.innerHeight + 'px';
 }
+function getGeometry() {
+  const W = window.innerWidth, H = window.innerHeight;
+  const pfW = Math.min(W * 0.94, 760);
+  const pfX = (W - pfW) / 2;
+  const laneW = pfW / laneCount;
+  const judgeY = H - Math.max(88, H * 0.13);
+  return { W, H, pfW, pfX, laneW, judgeY };
+}
 
 /* =========================================================
-   7. 渲染
+   8. 渲染
    ========================================================= */
 function draw(t) {
-  const W = window.innerWidth, H = window.innerHeight;
+  const g = getGeometry();
+  const { W, H, pfW, pfX, laneW, judgeY } = g;
+  const pps = judgeY / fallTime;
+
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
   ctx.fillStyle = '#05060c';
   ctx.fillRect(0, 0, W, H);
 
-  const pfW = Math.min(W * 0.94, 760);
-  const pfX = (W - pfW) / 2;
-  const laneW = pfW / laneCount;
-  const judgeY = H - Math.max(88, H * 0.13);
-  const pps = judgeY / fallTime;
-
   const bg = ctx.createLinearGradient(0, 0, 0, H);
-  bg.addColorStop(0, 'rgba(20,26,54,0.55)');
-  bg.addColorStop(1, 'rgba(8,10,22,0.92)');
+  bg.addColorStop(0, 'rgba(20,26,54,0.60)');
+  bg.addColorStop(1, 'rgba(8,10,22,0.94)');
   ctx.fillStyle = bg;
   ctx.fillRect(pfX, 0, pfW, H);
 
+  if (bgPulse > 0.01) {
+    ctx.fillStyle = `rgba(90,160,255,${bgPulse * 0.055})`;
+    ctx.fillRect(pfX, 0, pfW, H);
+  }
+
   for (let i = 0; i < laneCount; i++) {
-    ctx.fillStyle = (i % 2)
-      ? 'rgba(255,255,255,0.022)'
-      : 'rgba(255,255,255,0.052)';
+    ctx.fillStyle = (i % 2) ? 'rgba(255,255,255,0.022)' : 'rgba(255,255,255,0.052)';
     ctx.fillRect(pfX + i * laneW, 0, laneW, H);
   }
 
   for (let i = 0; i < laneCount; i++) {
     if (laneFlash[i] > 0.01) {
       const x = pfX + i * laneW;
-      const g = ctx.createLinearGradient(0, judgeY - 190, 0, judgeY);
-      g.addColorStop(0, 'rgba(255,255,255,0)');
-      g.addColorStop(1, withAlpha(LANE_COLORS[i % 8], 0.5 * laneFlash[i]));
-      ctx.fillStyle = g;
-      ctx.fillRect(x, judgeY - 190, laneW, 190);
+      const col = LANE_COLORS[i % 8];
+      const lg = ctx.createLinearGradient(0, judgeY - 240, 0, judgeY);
+      lg.addColorStop(0, withAlpha(col, 0));
+      lg.addColorStop(0.55, withAlpha(col, 0.16 * laneFlash[i]));
+      lg.addColorStop(1, withAlpha(col, 0.62 * laneFlash[i]));
+      ctx.fillStyle = lg;
+      ctx.fillRect(x, judgeY - 240, laneW, 240);
     }
   }
 
@@ -566,27 +779,25 @@ function draw(t) {
     ctx.stroke();
   }
 
-  // 音符
-  const nh = Math.max(14, Math.min(30, laneW * 0.42));
+  const nh = Math.max(22, Math.min(46, laneW * 0.56));
+  const nw = laneW * 0.78;
   for (let i = 0; i < allNotes.length; i++) {
     const nt = allNotes[i];
     if (nt.judged) continue;
     const dt = nt.time - t;
-    if (dt > fallTime + 0.3) continue;
+    if (dt > fallTime + 0.35) continue;
     const y = judgeY - dt * pps;
-    if (y < -nh * 2 || y > H + nh) continue;
-
-    const x = pfX + nt.lane * laneW + laneW * 0.1;
-    const w = laneW * 0.8;
-    drawNote(x, y - nh / 2, w, nh, LANE_COLORS[nt.lane % 8]);
+    if (y < -nh * 3 || y > H + nh) continue;
+    const x = pfX + nt.lane * laneW + (laneW - nw) / 2;
+    drawNote(x, y - nh / 2, nw, nh, LANE_COLORS[nt.lane % 8]);
   }
 
-  // 判定线
+  const pulseH = 3 + linePulse * 7;
   ctx.save();
   ctx.shadowColor = '#6fe3ff';
-  ctx.shadowBlur = 20;
-  ctx.fillStyle = 'rgba(150,230,255,0.9)';
-  ctx.fillRect(pfX, judgeY - 2, pfW, 3);
+  ctx.shadowBlur = 20 + linePulse * 34;
+  ctx.fillStyle = `rgba(160,235,255,${0.75 + linePulse * 0.25})`;
+  ctx.fillRect(pfX, judgeY - pulseH / 2, pfW, pulseH);
   ctx.restore();
 
   ctx.textAlign = 'center';
@@ -595,24 +806,62 @@ function draw(t) {
     const cx = pfX + (i + 0.5) * laneW;
     const label = DIFFS[currentDiff].keyLabels[i];
     const hot = laneFlash[i] > 0.01;
-    ctx.font = `700 ${Math.min(20, laneW * 0.34)}px system-ui,-apple-system,sans-serif`;
-    ctx.fillStyle = hot
-      ? withAlpha(LANE_COLORS[i % 8], 0.95)
-      : 'rgba(190,205,235,0.42)';
+    ctx.font = `800 ${Math.min(20, laneW * 0.34)}px system-ui,-apple-system,sans-serif`;
+    if (hot) {
+      ctx.shadowColor = LANE_COLORS[i % 8];
+      ctx.shadowBlur = 14;
+      ctx.fillStyle = withAlpha(LANE_COLORS[i % 8], 0.95);
+    } else {
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = 'rgba(190,205,235,0.42)';
+    }
     ctx.fillText(label, cx, judgeY + 30);
   }
+  ctx.shadowBlur = 0;
+
+  drawHitFX();
 
   for (let i = popups.length - 1; i >= 0; i--) {
     const p = popups[i];
     if (p.life <= 0) { popups.splice(i, 1); continue; }
     const cx = pfX + (p.lane + 0.5) * laneW;
-    ctx.globalAlpha = Math.min(1, p.life);
-    ctx.fillStyle = p.color;
+    const prog = 1 - p.life;
+    const y = judgeY - 52 - prog * 52;
+    const sc = 1 + prog * 0.18;
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, p.life * 1.5);
+    ctx.translate(cx, y);
+    ctx.scale(sc, sc);
     ctx.font = '800 17px system-ui,-apple-system,sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(p.text, cx, judgeY - 46 - (1 - p.life) * 46);
-    ctx.globalAlpha = 1;
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = p.color;
+    ctx.shadowColor = p.color;
+    ctx.shadowBlur = 18;
+    ctx.fillText(p.text, 0, 0);
+    ctx.restore();
     p.life -= 0.055;
+  }
+
+  if (combo >= 5) {
+    const sc = 1 + comboPulse * 0.22;
+    const base = Math.min(58, W * 0.13);
+    ctx.save();
+    ctx.translate(W / 2, H * 0.22);
+    ctx.scale(sc, sc);
+    ctx.globalAlpha = 0.9;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `900 ${base}px system-ui,-apple-system,sans-serif`;
+    ctx.shadowColor = '#7fe6ff';
+    ctx.shadowBlur = 28;
+    ctx.fillStyle = 'rgba(255,255,255,0.93)';
+    ctx.fillText(combo, 0, 0);
+    ctx.shadowBlur = 0;
+    ctx.font = '700 12px system-ui,-apple-system,sans-serif';
+    ctx.fillStyle = 'rgba(200,220,255,0.5)';
+    ctx.fillText('COMBO', 0, base * 0.68);
+    ctx.restore();
   }
 
   if (t < 0) {
@@ -631,36 +880,147 @@ function draw(t) {
 
   const fadeL = ctx.createLinearGradient(pfX - 40, 0, pfX, 0);
   fadeL.addColorStop(0, 'rgba(5,6,12,0)');
-  fadeL.addColorStop(1, 'rgba(5,6,12,0.85)');
+  fadeL.addColorStop(1, 'rgba(5,6,12,0.88)');
   ctx.fillStyle = fadeL;
   ctx.fillRect(pfX - 40, 0, 40, H);
 
   const fadeR = ctx.createLinearGradient(pfX + pfW, 0, pfX + pfW + 40, 0);
-  fadeR.addColorStop(0, 'rgba(5,6,12,0.85)');
+  fadeR.addColorStop(0, 'rgba(5,6,12,0.88)');
   fadeR.addColorStop(1, 'rgba(5,6,12,0)');
   ctx.fillStyle = fadeR;
   ctx.fillRect(pfX + pfW, 0, 40, H);
+
+  if (flashAlpha > 0.002) {
+    ctx.fillStyle = `rgba(200,235,255,${flashAlpha})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  linePulse *= 0.90;
+  comboPulse *= 0.88;
+  flashAlpha *= 0.86;
+  bgPulse *= 0.94;
+
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += p.g;
+    p.vx *= 0.985;
+    p.life -= p.decay;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+  for (let i = ripples.length - 1; i >= 0; i--) {
+    const r = ripples[i];
+    r.r += (r.maxR - r.r) * 0.18;
+    r.life -= 0.055;
+    if (r.life <= 0) ripples.splice(i, 1);
+  }
 }
 
 function drawNote(x, y, w, h, color) {
-  rr(ctx, x, y, w, h, Math.min(h / 2, 9));
+  const r = Math.min(h / 2, 12);
+
+  const trailH = h * 2.6;
+  const tg = ctx.createLinearGradient(0, y - trailH, 0, y + h * 0.3);
+  tg.addColorStop(0, withAlpha(color, 0));
+  tg.addColorStop(0.55, withAlpha(color, 0.05));
+  tg.addColorStop(1, withAlpha(color, 0.22));
+  ctx.fillStyle = tg;
+  ctx.fillRect(x + w * 0.24, y - trailH, w * 0.52, trailH + h * 0.3);
+
+  rr(ctx, x, y, w, h, r);
   const g = ctx.createLinearGradient(0, y, 0, y + h);
   g.addColorStop(0, '#ffffff');
-  g.addColorStop(0.22, color);
-  g.addColorStop(1, darken(color, 0.55));
+  g.addColorStop(0.16, '#ffffff');
+  g.addColorStop(0.46, color);
+  g.addColorStop(1, darken(color, 0.48));
   ctx.fillStyle = g;
   ctx.shadowColor = color;
-  ctx.shadowBlur = 16;
+  ctx.shadowBlur = 24;
   ctx.fill();
   ctx.shadowBlur = 0;
 
-  ctx.fillStyle = 'rgba(255,255,255,0.55)';
-  rr(ctx, x + 3, y + 2, w - 6, Math.max(2, h * 0.18), 2);
+  ctx.strokeStyle = withAlpha('#ffffff', 0.55);
+  ctx.lineWidth = 1.3;
+  ctx.stroke();
+
+  ctx.fillStyle = 'rgba(255,255,255,0.78)';
+  rr(ctx, x + 3, y + 2.5, w - 6, Math.max(3, h * 0.17), Math.min(r, 4));
+  ctx.fill();
+
+  ctx.fillStyle = withAlpha('#ffffff', 0.26);
+  rr(ctx, x + 5, y + h * 0.52, w - 10, Math.max(1.6, h * 0.06), 2);
   ctx.fill();
 }
 
+function drawHitFX() {
+  if (!particles.length && !ripples.length) return;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+
+  for (const r of ripples) {
+    ctx.globalAlpha = Math.max(0, r.life) * 0.85;
+    ctx.strokeStyle = r.color;
+    ctx.lineWidth = 2 + r.life * 3.5;
+    ctx.beginPath();
+    ctx.ellipse(r.x, r.y, r.r, r.r * 0.32, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  for (const p of particles) {
+    ctx.globalAlpha = Math.max(0, p.life) * 0.95;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * Math.max(0.2, p.life), 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
+  ctx.globalAlpha = 1;
+}
+
+function spawnHitFX(lane, isPerfect) {
+  const g = getGeometry();
+  const cx = g.pfX + (lane + 0.5) * g.laneW;
+  const y = g.judgeY;
+  const color = LANE_COLORS[lane % LANE_COLORS.length];
+
+  ripples.push({
+    x: cx, y, r: g.laneW * 0.24, maxR: g.laneW * 0.95,
+    life: 1, color
+  });
+  if (isPerfect) {
+    ripples.push({
+      x: cx, y, r: g.laneW * 0.1, maxR: g.laneW * 1.5,
+      life: 1, color: '#ffffff'
+    });
+  }
+
+  const n = isPerfect ? 14 : 9;
+  for (let i = 0; i < n; i++) {
+    const ang = -Math.PI * 0.5 + (Math.random() - 0.5) * Math.PI * 1.35;
+    const sp = 1.2 + Math.random() * 3.4;
+    particles.push({
+      x: cx + (Math.random() - 0.5) * g.laneW * 0.62,
+      y: y + (Math.random() - 0.5) * 9,
+      vx: Math.cos(ang) * sp,
+      vy: Math.sin(ang) * sp - 1.1,
+      g: 0.11,
+      size: 1.5 + Math.random() * 2.8,
+      life: 1,
+      decay: 0.018 + Math.random() * 0.022,
+      color: Math.random() < 0.34 ? '#ffffff' : color
+    });
+  }
+
+  linePulse = 1;
+  comboPulse = 1;
+  bgPulse = Math.min(1, bgPulse + 0.5);
+  if (isPerfect) flashAlpha = Math.min(0.10, flashAlpha + 0.085);
+}
+
 /* =========================================================
-   8. 音频上下文
+   9. 音频上下文
    ========================================================= */
 function ensureAudioCtx() {
   if (!audioCtx) {
@@ -670,14 +1030,13 @@ function ensureAudioCtx() {
     masterGain.connect(audioCtx.destination);
   }
 }
-
 function getSongTime() {
   if (!audioCtx) return 0;
   return audioCtx.currentTime - startAt;
 }
 
 /* =========================================================
-   9. 游戏逻辑
+   10. 游戏逻辑
    ========================================================= */
 function judgeLane(lane) {
   if (!playing || paused) return;
@@ -700,12 +1059,14 @@ function judgeLane(lane) {
     combo++;
     score += 300 + Math.min(combo, 100) * 2;
     popups.push({ lane, text: 'PERFECT', color: '#ffd75e', life: 1 });
+    spawnHitFX(lane, true);
   } else {
     note.result = 'good';
     counts.good++;
     combo++;
     score += 120 + Math.min(combo, 100);
     popups.push({ lane, text: 'GOOD', color: '#6fe3ff', life: 1 });
+    spawnHitFX(lane, false);
   }
   if (combo > maxCombo) maxCombo = combo;
   updateHUD();
@@ -743,7 +1104,7 @@ function updateHUD() {
 }
 
 /* =========================================================
-   10. 主循环
+   11. 主循环
    ========================================================= */
 function loop() {
   if (!playing || paused) return;
@@ -765,27 +1126,18 @@ function loop() {
 }
 
 /* =========================================================
-   11. 开始 / 暂停 / 恢复 / 结束
+   12. 加载条
    ========================================================= */
-function resetStats() {
-  score = 0; combo = 0; maxCombo = 0;
-  counts = { perfect: 0, good: 0, miss: 0 };
-  popups = [];
-  updateHUD();
-}
-
-function createLoading() {
+function createLoading(title = '正在加载…') {
   const div = document.createElement('div');
   div.style.cssText = `position:fixed;inset:0;display:flex;flex-direction:column;
     align-items:center;justify-content:center;gap:18px;z-index:20;
-    background:radial-gradient(circle at 50% 45%,rgba(30,42,90,.88),rgba(5,6,12,.98));
+    background:radial-gradient(circle at 50% 45%,rgba(30,42,90,.9),rgba(5,6,12,.99));
     color:#dceaff;font-size:13px;letter-spacing:3px;`;
   div.innerHTML = `
-    <div style="font-size:15px;font-weight:700;letter-spacing:6px;
+    <div class="ld-title" style="font-size:15px;font-weight:700;letter-spacing:6px;
       background:linear-gradient(100deg,#7fe6ff,#a78bfa);
-      -webkit-background-clip:text;background-clip:text;color:transparent;">
-      解析音频中
-    </div>
+      -webkit-background-clip:text;background-clip:text;color:transparent;">${title}</div>
     <div style="width:min(320px,70vw);height:6px;border-radius:4px;
       background:rgba(255,255,255,.1);overflow:hidden;">
       <div class="load-fill" style="height:100%;width:0%;border-radius:4px;
@@ -795,8 +1147,11 @@ function createLoading() {
   document.body.appendChild(div);
   const bar = div.querySelector('.load-fill');
   const pct = div.querySelector('.load-pct');
+  const titleEl = div.querySelector('.ld-title');
   return {
+    setTitle(t) { titleEl.textContent = t; },
     setProgress(p) {
+      p = Math.max(0, Math.min(1, p));
       bar.style.width = (p * 100).toFixed(0) + '%';
       pct.textContent = Math.round(p * 100) + '%';
     },
@@ -804,13 +1159,90 @@ function createLoading() {
   };
 }
 
-async function startGame() {
+/* =========================================================
+   13. 选择内置歌曲
+   ========================================================= */
+async function selectBuiltinSong(song) {
+  if (busy) return;
+  ensureAudioCtx();
+  if (audioCtx.state === 'suspended') await audioCtx.resume();
+
+  busy = true;
+  const loading = createLoading('正在加载 ' + song.name + '…');
+  loading.setProgress(0);
+
+  try {
+    let buffer = songBufferCache.get(song.url);
+
+    if (!buffer) {
+      loading.setTitle('正在下载 ' + song.name + '…');
+      const arrayBuffer = await fetchAudioBuffer(song.url, p => {
+        loading.setProgress(p * 0.30);
+      });
+
+      loading.setTitle('正在解码…');
+      loading.setProgress(0.30);
+      await sleep(20);
+      buffer = await audioCtx.decodeAudioData(arrayBuffer);
+      loading.setProgress(0.36);
+
+      songBufferCache.set(song.url, buffer);
+    } else {
+      loading.setProgress(0.36);
+    }
+
+    decodedBuffer = buffer;
+    duration = buffer.duration;
+    currentSongLabel = song.name;
+    analysisCache = {};
+
+    busy = false;
+    await startGame(loading, 0.36);
+
+  } catch (err) {
+    console.error(err);
+    loading.remove();
+    busy = false;
+
+    const isFile = location.protocol === 'file:';
+    alert(
+      '无法加载「' + song.name + '」\n\n' +
+      '原因：' + err.message + '\n\n' +
+      (isFile
+        ? '当前是通过 file:// 直接打开网页，浏览器会阻止读取本地音频文件。\n'
+          + '请用本地服务器打开，例如在网页目录执行：\n\n'
+          + '    python -m http.server 8000\n\n'
+          + '然后浏览器访问 http://localhost:8000'
+        : '请检查：\n'
+          + '1. 文件是否放在 songs/ 文件夹中\n'
+          + '2. 文件名是否与 SONG_LIST 里配置的一致（区分大小写）\n'
+          + '3. 格式是否被浏览器支持（mp3 / ogg / wav / m4a）')
+    );
+  }
+}
+
+/* =========================================================
+   14. 开始 / 暂停 / 恢复 / 结束
+   ========================================================= */
+function resetStats() {
+  score = 0; combo = 0; maxCombo = 0;
+  counts = { perfect: 0, good: 0, miss: 0 };
+  popups = [];
+  particles = [];
+  ripples = [];
+  linePulse = 0;
+  comboPulse = 0;
+  flashAlpha = 0;
+  bgPulse = 0;
+  updateHUD();
+}
+
+async function startGame(preLoading = null, progressBase = 0) {
   if (!decodedBuffer) return;
 
   ensureAudioCtx();
   if (audioCtx.state === 'suspended') await audioCtx.resume();
 
-  // 清掉旧播放
   if (sourceNode) { try { sourceNode.stop(); } catch (e) {} sourceNode = null; }
   if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
 
@@ -822,17 +1254,25 @@ async function startGame() {
   paused = false;
   playing = false;
 
-  // 解析（带缓存）
   let onsets = analysisCache[currentDiff];
   if (!onsets) {
     busy = true;
-    const loading = createLoading();
+    let loading = preLoading;
+    if (!loading) {
+      loading = createLoading('正在解析音频…');
+      progressBase = 0;
+    } else {
+      loading.setTitle('正在解析音频…');
+    }
+
     try {
-      onsets = await analyzeBuffer(decodedBuffer, currentDiff, p => loading.setProgress(p));
+      onsets = await analyzeBuffer(decodedBuffer, currentDiff, p => {
+        loading.setProgress(progressBase + (1 - progressBase) * p);
+      });
     } catch (err) {
+      console.error(err);
       loading.remove();
       busy = false;
-      console.error(err);
       alert('音频解析失败：' + err.message);
       returnToMenu();
       return;
@@ -840,6 +1280,8 @@ async function startGame() {
     loading.remove();
     analysisCache[currentDiff] = onsets;
     busy = false;
+  } else if (preLoading) {
+    preLoading.remove();
   }
 
   buildNotes(onsets, DIFFS[currentDiff]);
@@ -870,6 +1312,11 @@ function pauseGame() {
   if (sourceNode) { try { sourceNode.stop(); } catch (e) {} sourceNode = null; }
   if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
 
+  flashAlpha = 0;
+  particles = [];
+  ripples = [];
+  draw(pausedOffset);
+
   syncDiffButtons();
   $('volumeSlider').value = Math.round(masterVolume * 100);
   $('volVal').textContent = Math.round(masterVolume * 100) + '%';
@@ -878,6 +1325,12 @@ function pauseGame() {
 
 function resumeGame() {
   if (!playing || !paused) return;
+
+  if (DIFFS[currentDiff].lanes !== laneCount) {
+    replaySong();
+    return;
+  }
+
   paused = false;
   $('pauseMenu').classList.add('hidden');
 
@@ -890,7 +1343,7 @@ function resumeGame() {
     startAt = now - pausedOffset;
     sourceNode.start(now, pausedOffset);
   } else {
-    startAt = now - pausedOffset;   // 未来时间
+    startAt = now - pausedOffset;
     sourceNode.start(startAt, 0);
   }
 
@@ -899,7 +1352,6 @@ function resumeGame() {
 
 async function replaySong() {
   if (busy) return;
-  // 关闭暂停界面，用当前难度重开
   $('pauseMenu').classList.add('hidden');
   playing = false;
   paused = false;
@@ -920,11 +1372,13 @@ function returnToMenu() {
   $('result').classList.remove('on');
   $('menu').classList.remove('hidden');
   $('startBtn').disabled = !decodedBuffer;
+
   if (decodedBuffer) {
-    $('status').textContent =
-      `时长 ${duration.toFixed(1)}s · 采样率 ${decodedBuffer.sampleRate}Hz · 可以开始了`;
+    $('status').textContent = currentSongLabel
+      ? `当前曲目：${currentSongLabel} · 时长 ${duration.toFixed(1)}s · 点击开始或重选`
+      : `时长 ${duration.toFixed(1)}s · 采样率 ${decodedBuffer.sampleRate}Hz · 可以开始了`;
   } else {
-    $('status').textContent = '请先选择一个音频文件';
+    $('status').textContent = '请选择内置歌曲或上传音频文件';
   }
 }
 
@@ -960,7 +1414,7 @@ function endGame() {
 }
 
 /* =========================================================
-   12. 输入
+   15. 输入
    ========================================================= */
 function bindInput() {
   window.addEventListener('keydown', e => {
@@ -990,16 +1444,12 @@ function bindInput() {
     if (lane !== undefined) laneFlash[lane] = Math.max(laneFlash[lane] * 0.3, 0);
   });
 
-  // 触屏 / 鼠标
   canvas.addEventListener('pointerdown', e => {
     if (!playing || paused) return;
-    const W = window.innerWidth;
-    const pfW = Math.min(W * 0.94, 760);
-    const pfX = (W - pfW) / 2;
-    const laneW = pfW / laneCount;
+    const g = getGeometry();
     const x = e.clientX;
-    if (x < pfX || x > pfX + pfW) return;
-    const lane = Math.floor((x - pfX) / laneW);
+    if (x < g.pfX || x > g.pfX + g.pfW) return;
+    const lane = Math.floor((x - g.pfX) / g.laneW);
     if (lane < 0 || lane >= laneCount) return;
     laneFlash[lane] = 1;
     judgeLane(lane);
@@ -1007,12 +1457,41 @@ function bindInput() {
 }
 
 /* =========================================================
-   13. UI 绑定
+   16. UI 绑定
    ========================================================= */
 function syncDiffButtons() {
   document.querySelectorAll('.diff').forEach(b => {
     b.classList.toggle('active', b.dataset.diff === currentDiff);
   });
+}
+
+/* 渲染歌单列表 */
+function renderSongList() {
+  const list = $('songList');
+  list.innerHTML = '';
+
+  if (!SONG_LIST.length) {
+    list.innerHTML =
+      '<div class="song-empty">未配置内置歌曲<br>请查看代码顶部 SONG_LIST</div>';
+    return;
+  }
+
+  for (const song of SONG_LIST) {
+    const btn = document.createElement('button');
+    btn.className = 'song-item';
+    btn.type = 'button';
+    btn.style.setProperty('--c', song.color || '#6fe3ff');
+    btn.title = song.url;
+    btn.innerHTML =
+      `<span class="song-dot"></span>` +
+      `<span class="song-info">` +
+        `<b>${song.name}</b>` +
+        `<em>${song.tag || song.url}</em>` +
+      `</span>` +
+      `<span class="song-play">▶</span>`;
+    btn.addEventListener('click', () => selectBuiltinSong(song));
+    list.appendChild(btn);
+  }
 }
 
 function bindUI() {
@@ -1025,13 +1504,14 @@ function bindUI() {
     $('fileName').textContent = file.name;
     $('startBtn').disabled = true;
     $('status').textContent = '正在解码音频…';
+    currentSongLabel = '';
 
     try {
       ensureAudioCtx();
       const arr = await file.arrayBuffer();
       decodedBuffer = await audioCtx.decodeAudioData(arr);
       duration = decodedBuffer.duration;
-      analysisCache = {};                 // 换歌清空谱面缓存
+      analysisCache = {};
       $('status').textContent =
         `时长 ${duration.toFixed(1)}s · 采样率 ${decodedBuffer.sampleRate}Hz · 可以开始了`;
       $('startBtn').disabled = false;
@@ -1043,7 +1523,6 @@ function bindUI() {
     }
   });
 
-  // 所有难度按钮（主菜单 + 暂停菜单共用）
   document.querySelectorAll('.diff').forEach(btn => {
     btn.addEventListener('click', () => {
       currentDiff = btn.dataset.diff;
@@ -1056,15 +1535,11 @@ function bindUI() {
     startGame();
   });
 
-  // 菜单键 → 暂停
   $('menuBtn').addEventListener('click', pauseGame);
-
-  // 暂停菜单操作
   $('resumeBtn').addEventListener('click', resumeGame);
   $('replayBtn').addEventListener('click', replaySong);
   $('reselectBtn').addEventListener('click', returnToMenu);
 
-  // 音量
   const slider = $('volumeSlider');
   slider.addEventListener('input', () => {
     masterVolume = slider.value / 100;
@@ -1074,17 +1549,21 @@ function bindUI() {
     }
   });
 
-  // 结算再来一次
   $('againBtn').addEventListener('click', () => {
     $('result').classList.remove('on');
     startGame();
   });
 
+  if (location.protocol === 'file:') {
+    $('fileWarn').style.display = 'block';
+  }
+
   syncDiffButtons();
+  renderSongList();
 }
 
 /* =========================================================
-   14. 启动
+   17. 启动
    ========================================================= */
 initCanvas();
 bindUI();
