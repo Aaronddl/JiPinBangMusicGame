@@ -55,6 +55,18 @@
 
   .section-label{font-size:10.5px;letter-spacing:4px;opacity:.5;flex-shrink:0;}
 
+  #songSearch{
+    width:100%;padding:9px 12px;border-radius:10px;
+    background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.11);
+    color:#e8ecf8;font-size:12px;font-family:inherit;outline:none;
+    user-select:text;flex-shrink:0;transition:.2s;
+  }
+  #songSearch::placeholder{color:rgba(219,228,255,.4);}
+  #songSearch:focus{
+    border-color:rgba(140,200,255,.6);
+    box-shadow:0 0 16px rgba(120,180,255,.18);
+  }
+
   /* 提示条（file:// 时出现） */
   #fileWarn{display:none;padding:7px 12px;border-radius:9px;
     background:rgba(255,180,80,.12);border:1px solid rgba(255,180,80,.4);
@@ -291,6 +303,7 @@
     </div>
 
     <div class="section-label">内 置 歌 单</div>
+    <input id="songSearch" type="search" placeholder="搜索歌曲名称、标签或文件名" aria-label="搜索内置歌曲">
     <div class="song-list-wrap" id="songListWrap">
       <div class="song-list" id="songList"></div>
     </div>
@@ -1481,7 +1494,18 @@ function renderSongList() {
     return;
   }
 
-  for (const song of SONG_LIST) {
+  const query = $('songSearch').value.trim().toLocaleLowerCase();
+  const songs = SONG_LIST.filter(song =>
+    [song.name, song.tag, song.url]
+      .some(value => String(value || '').toLocaleLowerCase().includes(query))
+  );
+
+  if (!songs.length) {
+    list.innerHTML = '<div class="song-empty">没有找到匹配的歌曲</div>';
+    return;
+  }
+
+  for (const song of songs) {
     const btn = document.createElement('button');
     btn.className = 'song-item';
     btn.type = 'button';
@@ -1501,6 +1525,8 @@ function renderSongList() {
 
 function bindUI() {
   const fileInput = $('fileInput');
+
+  $('songSearch').addEventListener('input', renderSongList);
 
   fileInput.addEventListener('change', async e => {
     const file = e.target.files[0];
